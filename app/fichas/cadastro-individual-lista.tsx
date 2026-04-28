@@ -1,0 +1,310 @@
+import React, { useState, useEffect, useRef } from 'react';
+import {
+  View, Text, StyleSheet, TouchableOpacity, FlatList,
+  ActivityIndicator, TextInput, Modal, useWindowDimensions,
+  useColorScheme
+} from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { Ionicons } from '@expo/vector-icons';
+import { router, useFocusEffect } from 'expo-router';
+import { Q } from '@nozbe/watermelondb';
+import { pessoaCollection } from '../../src/db/index';
+import { Colors } from './colors';
+
+
+interface Filtros {
+  buscaRapida: string;
+  microArea: string;
+  statusSync: string; // T = Todos, S = Sincronizado, P = Pendente
+}
+// --- Função auxiliar para converter YYYY-MM-DD para DD/MM/YYYY ---
+const formatarDataISO = (dataRaw: string | Date | null | undefined): string => {
+  if (!dataRaw) return '';
+  const str = String(dataRaw);
+  
+  // Se já estiver formatada com barras, apenas retorna
+  if (str.includes('/')) return str; 
+  
+  // Se for ISO (Ex: 1990-12-25 ou 1990-12-25T14:30:00Z)
+  if (str.includes('-')) {
+    const apenasData = str.split('T')[0]; // Pega apenas a parte YYYY-MM-DD
+    const partes = apenasData.split('-');
+    if (partes.length === 3) {
+      return `${partes[2]}/${partes[1]}/${partes[0]}`;
+    }
+  }
+  return str;
+};
+export default function CadastroIndividualListaScreen() {
+  const { width } = useWindowDimensions();
+  const isTablet = width >= 768;
+  const theme = Colors[useColorScheme() ?? 'light'];
+  const styles = getStyles(theme);
+
+  const [lista, setLista] = useState<any[]>([]);
+  const [carregando, setCarregando] = useState(true);
+  
+  // Estado de Filtros
+  const [modalFiltro, setModalFiltro] = useState(false);
+  const [filtros, setFiltros] = useState<Filtros>({
+    buscaRapida: '', microArea: '', statusSync: 'T'
+  });
+  
+  const filtrosRef = useRef(filtros);
+  useEffect(() => { filtrosRef.current = filtros; }, [filtros]);
+
+  useFocusEffect(
+    React.useCallback(() => {
+      carregarDados();
+    }, [])
+  );
+
+  async function carregarDados() {
+    setCarregando(true);
+    try {
+      const condicoes: Q.Clause[] = [];
+      const f = filtrosRef.current;
+
+      if (f.buscaRapida) {
+        const termo = f.buscaRapida.toUpperCase();
+        const isNumeric = /^\d+$/.test(f.buscaRapida);
+        
+        const orConditions: any[] = [
+          Q.where('nome', Q.like(`${termo}%`)), // Retirado o % inicial
+          Q.where('cpf', Q.like(`${f.buscaRapida}%`)),
+          Q.where('cns', Q.like(`${f.buscaRapida}%`))
+        ];
+
+        // Se o usuário digitou apenas números, permite pesquisar também pelo Código do Paciente
+        if (isNumeric) {
+          orConditions.push(Q.where('int_id', parseInt(f.buscaRapida, 10)));
+        }
+
+        condicoes.push(Q.or(...orConditions));
+      }
+
+      if (f.microArea) {
+        condicoes.push(Q.where('micro_area', f.microArea));
+      }
+
+      if (f.statusSync === 'S') {
+        condicoes.push(Q.where('sync_status', 'synced'));
+      } else if (f.statusSync === 'P') {
+        condicoes.push(Q.where('sync_status', Q.notEq('synced')));
+      }
+
+      const resultados = await pessoaCollection.query(...condicoes).fetch();
+      console.log('Pessoas encontradas no banco:', resultados.length);
+      setLista(resultados);
+    } catch (error) {
+      console.error(error);
+    } finally {
+      setCarregando(false);
+    }
+  }
+
+  const aplicarFiltros = () => {
+    setModalFiltro(false);
+    carregarDados();
+  };
+
+  const limparFiltros = () => {
+    setFiltros({ buscaRapida: '', microArea: '', statusSync: 'T' });
+  };
+
+  // ---- Renders ----
+  const renderItem = ({ item }: { item: any }) => {
+    const isSynced = item.syncStatus === 'synced';
+    return (
+      <TouchableOpacity style={[styles.card, isTablet && styles.cardTablet]} onPress={() => router.push(`/fichas/cadastro-individual?id=${item.id}`)} activeOpacity={0.7}>
+        <View style={styles.cardHeader}>
+          <View style={styles.row}>
+            <Ionicons name="person-outline" size={16} color="#0891B2" />
+            <Text style={styles.cardNome}>{item.intId} -{item.nome} </Text>
+          </View>
+        </View>
+        
+        <View style={styles.cardBody}>
+          <Text style={styles.infoLabel}>CNS/CPF: <Text style={styles.infoVal}>{item.cns || item.cpf || '--'}</Text></Text>
+          <Text style={styles.infoLabel}>Nascimento: <Text style={styles.infoVal}>{formatarDataISO(item.dtNasc) || '--'}</Text></Text>
+          <Text style={styles.infoLabel}>Microárea: <Text style={styles.infoVal}>{item.microArea || '--'}</Text></Text>
+        </View>
+
+        <View style={styles.cardFooter}>
+          <View style={styles.row}>
+            <Ionicons name={isSynced ? "cloud-done-outline" : "cloud-offline-outline"} size={14} color={isSynced ? "#059669" : "#D97706"} />
+            <Text style={[styles.infoSync, { color: isSynced ? "#059669" : "#D97706" }]}>
+              {isSynced ? "Sincronizado" : "Pendente"}
+            </Text>
+          </View>
+          <Ionicons name="chevron-forward" size={16} color={theme.textMuted} />
+        </View>
+      </TouchableOpacity>
+    );
+  };
+
+  return (
+    <SafeAreaView style={styles.safe}>
+      {/* HEADER */}
+      <View style={styles.header}>
+        <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
+          <Ionicons name="arrow-back" size={24} color={theme.primary} />
+        </TouchableOpacity>
+        <Text style={styles.headerTitulo}>Cadastros Individuais</Text>
+        <View style={{ width: 32 }} />
+      </View>
+
+      {/* BARRA DE BUSCA E FILTROS */}
+      <View style={styles.searchContainer}>
+        <View style={styles.searchInputWrap}>
+          <Ionicons name="search" size={20} color={theme.textMuted} style={{marginLeft: 12}} />
+          <TextInput
+            style={[styles.searchInput, { color: theme.text }]}
+            placeholder="Buscar nome, código, CNS ou CPF..."
+            placeholderTextColor={theme.textMuted}
+            value={filtros.buscaRapida}
+            onChangeText={v => setFiltros({ ...filtros, buscaRapida: v })}
+            onSubmitEditing={carregarDados}
+            returnKeyType="search"
+          />
+          <TouchableOpacity style={styles.searchActionBtn} onPress={carregarDados} activeOpacity={0.8}>
+            <Ionicons name="search" size={20} color="#fff" />
+          </TouchableOpacity>
+        </View>
+        <TouchableOpacity style={styles.filterBtn} onPress={() => setModalFiltro(true)}>
+          <Ionicons name="options-outline" size={22} color={theme.info} />
+        </TouchableOpacity>
+      </View>
+
+      {/* LISTA DE RESULTADOS */}
+      {carregando ? (
+        <View style={styles.center}>
+          <ActivityIndicator size="large" color={theme.info} />
+          <Text style={styles.loadingTxt}>Buscando cadastros...</Text>
+        </View>
+      ) : (
+        <FlatList
+          key={isTablet ? 'tablet' : 'mobile'}
+          data={lista}
+          keyExtractor={item => item.id}
+          renderItem={renderItem}
+          numColumns={isTablet ? 2 : 1}
+          columnWrapperStyle={isTablet ? styles.rowTablet : undefined}
+          contentContainerStyle={styles.listContainer}
+          ListEmptyComponent={
+            <View style={styles.empty}>
+              <Ionicons name="people-outline" size={48} color={theme.textMuted} />
+              <Text style={styles.emptyTxt}>Nenhum cadastro encontrado.</Text>
+            </View>
+          }
+        />
+      )}
+
+      <TouchableOpacity style={[styles.fab, { backgroundColor: theme.info }]} onPress={() => router.push('/fichas/cadastro-individual')}>
+        <Ionicons name="add" size={32} color="#fff" />
+      </TouchableOpacity>
+
+      {/* MODAL DE FILTRO AVANÇADO */}
+      <Modal visible={modalFiltro} transparent animationType="slide">
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalCard}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitulo}>Filtro Avançado</Text>
+              <TouchableOpacity onPress={() => setModalFiltro(false)}>
+                <Ionicons name="close" size={24} color={theme.textMuted} />
+              </TouchableOpacity>
+            </View>
+
+            <View style={styles.modalBody}>
+              <Text style={styles.label}>Microárea</Text>
+              <TextInput 
+                style={[styles.input, { color: theme.text }]} 
+                placeholderTextColor={theme.textMuted}
+                placeholder="Ex: 01, 02..."
+                value={filtros.microArea} 
+                onChangeText={v => setFiltros({ ...filtros, microArea: v })} 
+                keyboardType="numeric" 
+              />
+
+              <Text style={[styles.label, { marginTop: 16 }]}>Situação de Sincronismo</Text>
+              <View style={styles.radioGroup}>
+                {[ {k:'T', l:'Todos'}, {k:'S', l:'Sincronizados'}, {k:'P', l:'Pendentes'} ].map(o => (
+                  <TouchableOpacity key={o.k} style={[styles.radioBtn, filtros.statusSync === o.k && styles.radioBtnOn]} onPress={() => setFiltros({ ...filtros, statusSync: o.k })}>
+                    <Text style={[styles.radioTxt, filtros.statusSync === o.k && styles.radioTxtOn]}>{o.l}</Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            </View>
+
+            <View style={styles.modalFooter}>
+              <TouchableOpacity style={styles.btnLimpar} onPress={limparFiltros}>
+                <Text style={styles.btnLimparTxt}>Limpar</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={[styles.btnAplicar, { backgroundColor: theme.info }]} onPress={aplicarFiltros}>
+                <Text style={styles.btnAplicarTxt}>Aplicar Filtros</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+    </SafeAreaView>
+  );
+}
+
+const getStyles = (theme: any) => StyleSheet.create({
+  safe: { flex: 1, backgroundColor: theme.background },
+  header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', padding: 16, backgroundColor: theme.card, borderBottomWidth: 1, borderBottomColor: theme.border },
+  backBtn: { padding: 4 },
+  headerTitulo: { fontSize: 18, fontWeight: '700', color: theme.primary },
+  
+  searchContainer: { flexDirection: 'row', padding: 12, backgroundColor: theme.card, borderBottomWidth: 1, borderBottomColor: theme.border, gap: 8 },
+  searchInputWrap: { flex: 1, flexDirection: 'row', alignItems: 'center', backgroundColor: theme.background, borderRadius: 8, borderWidth: 1, borderColor: theme.border, overflow: 'hidden' },
+  searchInput: { flex: 1, height: 44, paddingHorizontal: 8, fontSize: 14 },
+  searchActionBtn: { width: 44, height: 44, backgroundColor: theme.info, alignItems: 'center', justifyContent: 'center' },
+  filterBtn: { width: 44, height: 44, backgroundColor: theme.infoBg, borderRadius: 8, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: theme.info },
+  
+  center: { flex: 1, justifyContent: 'center', alignItems: 'center', gap: 12 },
+  loadingTxt: { color: theme.textMuted, fontSize: 14 },
+  listContainer: { padding: 12, paddingBottom: 100 },
+  
+  rowTablet: { justifyContent: 'space-between' },
+  card: { backgroundColor: theme.card, padding: 16, borderRadius: 12, marginBottom: 12, borderWidth: 1, borderColor: theme.border, elevation: 1, shadowColor: '#000', shadowOpacity: 0.05, shadowOffset: { width: 0, height: 2 } },
+  cardTablet: { width: '48%' },
+  
+  cardHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12, borderBottomWidth: 1, borderBottomColor: theme.background, paddingBottom: 8 },
+  row: { flexDirection: 'row', gap: 6, alignItems: 'center' },
+  cardNome: { fontSize: 15, fontWeight: '700', color: theme.text, flexShrink: 1 },
+  
+  cardBody: { gap: 4, marginBottom: 12 },
+  infoLabel: { fontSize: 12, color: theme.textMuted },
+  infoVal: { fontSize: 13, fontWeight: '600', color: theme.textSecondary },
+  
+  cardFooter: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', backgroundColor: theme.cardSecondary, padding: 8, borderRadius: 6, marginHorizontal: -4 },
+  infoSync: { fontSize: 11, fontWeight: '600' },
+
+  empty: { alignItems: 'center', marginTop: 60, gap: 12 },
+  emptyTxt: { color: theme.textMuted, fontSize: 15 },
+  fab: { position: 'absolute', bottom: 24, right: 24, width: 64, height: 64, borderRadius: 32, backgroundColor: theme.info, alignItems: 'center', justifyContent: 'center', elevation: 5, shadowColor: '#000', shadowOpacity: 0.3, shadowOffset: { width: 0, height: 4 } },
+
+  // Modal Estilos
+  modalOverlay: { flex: 1, backgroundColor: 'rgba(15, 23, 42, 0.6)', justifyContent: 'flex-end' },
+  modalCard: { backgroundColor: theme.card, borderTopLeftRadius: 24, borderTopRightRadius: 24, padding: 24, paddingBottom: 40 },
+  modalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 },
+  modalTitulo: { fontSize: 18, fontWeight: '700', color: theme.text },
+  modalBody: { marginBottom: 24 },
+  
+  label: { fontSize: 13, fontWeight: '600', color: theme.textSecondary, marginBottom: 6 },
+  input: { borderWidth: 1, borderColor: theme.borderInput, borderRadius: 8, padding: 12, fontSize: 14, backgroundColor: theme.card },
+  
+  radioGroup: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+  radioBtn: { paddingHorizontal: 12, paddingVertical: 8, borderRadius: 8, borderWidth: 1, borderColor: theme.borderInput, backgroundColor: theme.cardSecondary },
+  radioBtnOn: { backgroundColor: theme.info, borderColor: theme.info },
+  radioTxt: { fontSize: 13, color: theme.textMuted, fontWeight: '600' },
+  radioTxtOn: { color: '#fff' },
+
+  modalFooter: { flexDirection: 'row', gap: 12 },
+  btnLimpar: { flex: 1, padding: 14, borderRadius: 10, alignItems: 'center', backgroundColor: theme.background },
+  btnLimparTxt: { color: theme.textSecondary, fontWeight: '700', fontSize: 15 },
+  btnAplicar: { flex: 2, padding: 14, borderRadius: 10, alignItems: 'center', backgroundColor: theme.info },
+  btnAplicarTxt: { color: '#fff', fontWeight: '700', fontSize: 15 }
+});

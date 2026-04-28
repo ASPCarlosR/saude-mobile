@@ -1,0 +1,101 @@
+{
+  "expo": {
+    "name": "Saúde Mobile",
+    "slug": "saude-mobile",
+    "version": "1.0.0",
+    "orientation": "default",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "automatic",
+    "splash": {
+      "image": "./assets/splash.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#0A4F6E"
+    },
+    "assetBundlePatterns": [
+      "**/*"
+    ],
+    "newArchEnabled": true,
+    "runtimeVersion": {
+      "policy": "appVersion"
+    },
+    "updates": {
+      "url": "https://u.expo.dev/5c00ba77-36d8-4f40-95ad-48c0d335c266"
+    },
+    "ios": {
+      "supportsTablet": false,
+      "bundleIdentifier": "saude.mobile",
+      "infoPlist": {
+        "NSFaceIDUsageDescription": "Usado para desbloquear o aplicativo de forma segura",
+        "NSLocationWhenInUseUsageDescription": "Usado para registrar a localização das visitas domiciliares",
+        "NSCameraUsageDescription": "Usado para capturar imagens durante as visitas"
+      }
+    },
+    "android": {
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/adaptive-icon.png",
+        "backgroundColor": "#0A4F6E"
+      },
+      "package": "br.gov.saude.mobile",
+      "permissions": [
+        "USE_BIOMETRIC",
+        "USE_FINGERPRINT",
+        "ACCESS_FINE_LOCATION",
+        "ACCESS_COARSE_LOCATION",
+        "CAMERA",
+        "android.permission.USE_BIOMETRIC",
+        "android.permission.USE_FINGERPRINT",
+        "android.permission.ACCESS_COARSE_LOCATION",
+        "android.permission.ACCESS_FINE_LOCATION",
+        "USE_BIOMETRIC",
+        "USE_FINGERPRINT",
+        "ACCESS_FINE_LOCATION",
+        "ACCESS_COARSE_LOCATION",
+        "CAMERA",
+        "android.permission.USE_BIOMETRIC",
+        "android.permission.USE_FINGERPRINT",
+        "android.permission.ACCESS_COARSE_LOCATION",
+        "android.permission.ACCESS_FINE_LOCATION"
+      ],
+      "navigationBar": {
+        "visible": "immersive"
+      },
+      "usesCleartextTraffic": true
+    },
+    "plugins": [
+      "expo-router",
+      "expo-secure-store",
+      [
+        "expo-local-authentication",
+        {
+          "faceIDPermission": "Permite desbloquear o app com reconhecimento facial"
+        }
+      ],
+      [
+        "expo-location",
+        {
+          "locationWhenInUsePermission": "Permite registrar localização das visitas"
+        }
+      ],
+      "expo-asset",
+      "expo-font",
+      [
+        "expo-build-properties",
+        {
+          "android": {
+            "usesCleartextTraffic": true
+            
+          }
+        }
+      ],
+      "@react-native-community/datetimepicker"
+    ],
+    "scheme": "saude-mobile",
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "5c00ba77-36d8-4f40-95ad-48c0d335c266"
+      }
+    },
+    "owner": "carloshenriqque"
+  }
+}

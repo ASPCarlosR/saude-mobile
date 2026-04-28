@@ -1,0 +1,19 @@
+# Dependências
+node_modules/
+
+# Build
+dist/
+
+# Variáveis de ambiente — NUNCA suba ao git
+.env
+.env.local
+.env.production
+.env.staging
+
+# Logs
+*.log
+npm-debug.log*
+
+# SO
+.DS_Store
+Thumbs.db

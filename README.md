@@ -125,17 +125,8 @@ App offline
 
 | Indicador | Fonte | Meta MS |
 |---|---|---|
-| Hipertensos acompanhados | visita com hipertensao=S nos últimos 6 meses | 60% |
-| Diabéticos acompanhados | visita com diabetes=S nos últimos 6 meses | 60% |
-| Gestantes em pré-natal | visita com gestante=S no último mês | 80% |
-| Cobertura de visitas | famílias com alguma visita no mês | 75% |
+| Hipertensos acompanhados | visita com hipertensao=S nos últimos 6 meses 
+| Diabéticos acompanhados | visita com diabetes=S nos últimos 6 meses
+| Gestantes em pré-natal | visita com gestante=S no último mês 
+| Cobertura de visitas | famílias com alguma visita no mês 
 
----
-
-## Sprints seguintes
-
-- [ ] Sprint 2: Cadastro Individual + Cadastro Domiciliar
-- [ ] Sprint 3: Atendimento Individual + Odontológico
-- [ ] Sprint 4: Atividade Coletiva + Vacina
-- [ ] Sprint 5: Geração XML e-SUS (todos os tipos)
-- [ ] Sprint 6: Testes e homologação e-SUS PEC

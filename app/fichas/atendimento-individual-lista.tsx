@@ -12,6 +12,54 @@ import { atendimentoIndivCollection } from '../../src/db/index';
 import { formatarDataHoraSegura } from '../../src/utils/conversoes';
 import { Colors } from './colors';
 // ---- Interfaces ----
+
+const normalizarFiltro = (valor: any) =>
+  String(valor ?? '')
+    .trim()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toUpperCase();
+
+const lerCampo = (item: any, nomes: string[]) => {
+  for (const nome of nomes) {
+    const direto = item?.[nome];
+    if (direto !== undefined && direto !== null && String(direto).trim() !== '') return direto;
+
+    const raw = item?._raw?.[nome];
+    if (raw !== undefined && raw !== null && String(raw).trim() !== '') return raw;
+  }
+  return '';
+};
+
+const montarTextoEndereco = (item: any) => {
+  const partes = [
+    lerCampo(item, ['endereco', 'logradouro', 'logradouroNome', 'logradouro_nome', 'bairro', 'bairroNome', 'bairro_nome', 'numero']),
+    lerCampo(item, ['dados']),
+  ];
+
+  return normalizarFiltro(partes.join(' '));
+};
+
+const filtrarPorPessoaEEndereco = (itens: any[], filtros: any) => {
+  const termoPessoa = normalizarFiltro(filtros.buscaRapida);
+  const termoEndereco = normalizarFiltro(filtros.endereco);
+
+  return itens.filter((item: any) => {
+    const textoPessoa = normalizarFiltro([
+      lerCampo(item, ['id', 'intId', 'int_id', 'pessoaId', 'pessoa_id', 'pacienteId', 'paciente_id', 'usuarioId', 'usuario_id']),
+      lerCampo(item, ['nome', 'pacienteNome', 'paciente_nome', 'cidadaoNome', 'cidadao_nome', 'responsavelNome', 'responsavel_nome']),
+      lerCampo(item, ['cpf', 'cns']),
+    ].join(' '));
+
+    const textoEndereco = montarTextoEndereco(item);
+
+    const passouPessoa = !termoPessoa || textoPessoa.includes(termoPessoa);
+    const passouEndereco = !termoEndereco || textoEndereco.includes(termoEndereco);
+
+    return passouPessoa && passouEndereco;
+  });
+};
+
 interface AtendimentoItem {
   id: string;
   data: string;
@@ -23,6 +71,7 @@ interface AtendimentoItem {
 
 interface Filtros {
   buscaRapida: string;
+  endereco: string;
   dataInicio: string;
   dataFim: string;
   status: string;
@@ -41,10 +90,18 @@ export default function AtendimentoIndividualListaScreen() {
   // Estado de Filtros
   const [modalFiltro, setModalFiltro] = useState(false);
   const [filtros, setFiltros] = useState<Filtros>({
-    buscaRapida: '', dataInicio: '', dataFim: '', status: ''
+    buscaRapida: '', endereco: '', dataInicio: '', dataFim: '', status: ''
   });
   const filtrosRef = useRef(filtros);
   useEffect(() => { filtrosRef.current = filtros; }, [filtros]);
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      carregarDados();
+    }, 250);
+
+    return () => clearTimeout(timer);
+  }, [filtros]);
 
   useFocusEffect(
     React.useCallback(() => {
@@ -58,18 +115,13 @@ export default function AtendimentoIndividualListaScreen() {
       const f = filtrosRef.current;
       const condicoes: Q.Clause[] = [];
       
-      if (f.buscaRapida) {
-        const termo = f.buscaRapida.toUpperCase();
-        condicoes.push(Q.or(
-          Q.where('paciente_nome', Q.like(`${termo}%`)),
-          Q.where('profissional_nome', Q.like(`${termo}%`))
-        ));
-      }
+      // Busca por pessoa/endereço é aplicada em memória logo abaixo para permitir nome, ID e endereço sem depender de colunas específicas.
+
       if (f.status) condicoes.push(Q.where('status', f.status));
 
       const resultados = await atendimentoIndivCollection.query(...condicoes).fetch();
       console.log('Atendimentos individuais encontrados no banco:', resultados.length);
-      setLista(resultados);
+      setLista(filtrarPorPessoaEEndereco(resultados as any[], f) as any);
     } catch (error) {
       console.error(error);
     } finally {
@@ -83,7 +135,7 @@ export default function AtendimentoIndividualListaScreen() {
   };
 
   const limparFiltros = () => {
-    setFiltros({ buscaRapida: '', dataInicio: '', dataFim: '', status: '' });
+    setFiltros({ buscaRapida: '', endereco: '', dataInicio: '', dataFim: '', status: '' });
   };
 
   // ---- Renders ----
@@ -139,24 +191,30 @@ export default function AtendimentoIndividualListaScreen() {
         <View style={{ width: 32 }} />
       </View>
 
-      {/* BARRA DE BUSCA E FILTROS */}
+      {/* FILTROS EM TEMPO REAL */}
       <View style={styles.searchContainer}>
         <View style={styles.searchInputWrap}>
-          <Ionicons name="search" size={20} color={theme.textMuted} style={{marginLeft: 12}} />
+          <Ionicons name="search" size={20} color={theme.textMuted} style={{ marginLeft: 12 }} />
           <TextInput
             style={[styles.searchInput, { color: theme.text }]}
-            placeholder="Buscar por paciente ou profissional..."
+            placeholder="Nome, ID, CNS ou CPF..."
             placeholderTextColor={theme.textMuted}
             value={filtros.buscaRapida}
             onChangeText={v => setFiltros({ ...filtros, buscaRapida: v })}
-            onSubmitEditing={carregarDados}
             returnKeyType="search"
           />
-          <TouchableOpacity style={styles.searchActionBtn} onPress={carregarDados} activeOpacity={0.8}><Ionicons name="search" size={20} color="#fff" /></TouchableOpacity>
         </View>
-        <TouchableOpacity style={styles.filterBtn} onPress={() => setModalFiltro(true)}>
-          <Ionicons name="options-outline" size={22} color={theme.info} />
-        </TouchableOpacity>
+        <View style={styles.searchInputWrap}>
+          <Ionicons name="location-outline" size={20} color={theme.textMuted} style={{ marginLeft: 12 }} />
+          <TextInput
+            style={[styles.searchInput, { color: theme.text }]}
+            placeholder="Endereço / rua..."
+            placeholderTextColor={theme.textMuted}
+            value={filtros.endereco}
+            onChangeText={v => setFiltros({ ...filtros, endereco: v })}
+            returnKeyType="search"
+          />
+        </View>
       </View>
 
       {/* LISTA DE RESULTADOS */}
@@ -239,7 +297,7 @@ const getStyles = (theme: any) => StyleSheet.create({
   backBtn: { padding: 4 },
   headerTitulo: { fontSize: 18, fontWeight: '700', color: theme.primary },
   
-  searchContainer: { flexDirection: 'row', padding: 12, backgroundColor: theme.card, borderBottomWidth: 1, borderBottomColor: theme.border, gap: 8 },
+  searchContainer: { padding: 12, backgroundColor: theme.card, borderBottomWidth: 1, borderBottomColor: theme.border, gap: 8 },
   searchInputWrap: { flex: 1, flexDirection: 'row', alignItems: 'center', backgroundColor: theme.background, borderRadius: 8, borderWidth: 1, borderColor: theme.border, overflow: 'hidden' },
   searchInput: { flex: 1, height: 44, paddingHorizontal: 8, fontSize: 14 },
   searchActionBtn: { width: 44, height: 44, backgroundColor: theme.info, alignItems: 'center', justifyContent: 'center' },

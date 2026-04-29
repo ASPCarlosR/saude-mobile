@@ -526,7 +526,7 @@ export default function IndicadoresScreen() {
         <View style={styles.loading}>
           <ActivityIndicator size="large" color={theme.primary} />
           <Text style={styles.loadingTxt}>Carregando indicadores APS...</Text>
-          <Text style={styles.loadingHint}>Buscando pendências da carteira</Text>
+          <Text style={styles.loadingHint}>Buscando pendências</Text>
         </View>
       </SafeAreaView>
     );
@@ -564,7 +564,7 @@ export default function IndicadoresScreen() {
         </View>
 
         <Text style={styles.headerInfo}>
-          Pacientes da sua carteira com critérios de indicadores APS ainda não atingidos no
+          Seus pacientes com critérios de indicadores APS ainda não atingidos no
           quadrimestre atual.
         </Text>
 

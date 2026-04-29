@@ -163,17 +163,43 @@ export class SyncService {
   async buscarPessoas(usuarioId: number, municipioSlug: string) {
     const db = await this.getDb(municipioSlug);
 
-    const dados = await db.query(`
+    const dados = await db.query(
+      `
       SELECT p.*,
              p.sdpessoaid as "intId",
+             COALESCE(p.sdpessoaprenome, p.sdpessoanom) as "nome",
+             COALESCE(dom.endereco, '') as "endereco",
+             COALESCE(dom.numero, '') as "numero",
+             COALESCE(dom.bairro, '') as "bairro",
+             COALESCE(dom.micro_area, p.sdpessoaprofmicroarea, '') as "microArea",
              u.sdusuarioconvenio as "convenio"
         FROM sdpessoa p
    LEFT JOIN sdusuario u
           ON u.sdusuarioid = p.sdpessoaid
+   LEFT JOIN LATERAL (
+          SELECT COALESCE(l.sdlogradourocepdnenomeconcatenado, d.sddomicilioenderecocompl, '') AS endereco,
+                 COALESCE(d.sddomicilioendereconum, '') AS numero,
+                 COALESCE(b.sdbairrodnenome, '') AS bairro,
+                 COALESCE(d.sddomicilioprofmicroarea, '') AS micro_area
+            FROM sddomiciliopacientes dp
+            JOIN sddomicilio d
+              ON d.sddomicilioid = dp.sddomicilioid
+       LEFT JOIN sdlogradourocepdne l
+              ON l.sdlogradourocepdneid = d.sddomiciliodnelogradourocepid
+       LEFT JOIN sdbairrodne b
+              ON b.sdbairrodneid = l.sdlogradourocepdnebairroid
+           WHERE dp.sddomiciliousuarioid = p.sdpessoaid
+             AND (dp.sddomiciliopacientesativo = 'S' OR dp.sddomiciliopacientesativo IS NULL)
+             AND COALESCE(dp.sddomiciliopacientemudou, 'N') <> 'S'
+           ORDER BY dp.sddomiciliopacientesdatainclusao DESC NULLS LAST
+           LIMIT 1
+        ) dom ON TRUE
        WHERE p.sdpessoainativo = 0
-       ORDER BY p.sdpessoaid DESC
-       LIMIT 500
-    `);
+         AND p.sdpessoaprofissionalid = $1
+       ORDER BY COALESCE(p.sdpessoaprenome, p.sdpessoanom), p.sdpessoaid
+      `,
+      [usuarioId]
+    );
 
     return { status: 'S', dados };
   }
@@ -181,7 +207,8 @@ export class SyncService {
   async buscarDomicilios(usuarioId: number, municipioSlug: string) {
     const db = await this.getDb(municipioSlug);
 
-    const dados = await db.query(`
+    const dados = await db.query(
+      `
       SELECT d.*,
              json_build_object(
                'moradores', COALESCE((
@@ -192,12 +219,13 @@ export class SyncService {
                    'cpf', p.sdpessoacpf,
                    'dtnasc', p.sdpessoadtnasc,
                    'ehResponsavel', (dp.sddomiciliopacientesrf = 'S')
-                 ))
+                 ) ORDER BY COALESCE(p.sdpessoaprenome, p.sdpessoanom))
                    FROM sddomiciliopacientes dp
                    JOIN sdpessoa p
                      ON p.sdpessoaid = dp.sddomiciliousuarioid
                   WHERE dp.sddomicilioid = d.sddomicilioid
                     AND dp.sddomiciliopacientesativo = 'S'
+                    AND p.sdpessoaprofissionalid = $1
                ), '[]'::json),
                'microArea', d.sddomicilioprofmicroarea,
                'sitMoradia', d.sddomiciliositmoradiaid,
@@ -207,6 +235,7 @@ export class SyncService {
                'energiaEletrica', d.sddomicilioenergiaeletrica,
                'endereco', COALESCE(l.sdlogradourocepdnenomeconcatenado, d.sddomicilioenderecocompl, ''),
                'numero', COALESCE(d.sddomicilioendereconum, ''),
+               'bairro', COALESCE(b.sdbairrodnenome, ''),
                'municipioNome', COALESCE(m.sdmunicipiodesc, ''),
                'unidadeNome', COALESCE(u.sdunidadenom, ''),
                'cnes', COALESCE(u.sdunidadecnes, ''),
@@ -217,6 +246,8 @@ export class SyncService {
         FROM sddomicilio d
         LEFT JOIN sdlogradourocepdne l
                ON l.sdlogradourocepdneid = d.sddomiciliodnelogradourocepid
+        LEFT JOIN sdbairrodne b
+               ON b.sdbairrodneid = l.sdlogradourocepdnebairroid
         LEFT JOIN sdunidade u
                ON u.sdunidadeid = d.sddomiciliounidadeid
         LEFT JOIN sdmunicipio m
@@ -225,9 +256,11 @@ export class SyncService {
                ON prof.sdprofissionalid = d.sddomicilioprofissionalid
         LEFT JOIN sdequipemedica eq
                ON eq.sdequipemedicaid = d.sddomicilioequipeid
+       WHERE d.sddomicilioprofissionalid = $1
        ORDER BY d.sddomicilioid DESC
-       LIMIT 100
-    `);
+      `,
+      [usuarioId]
+    );
 
     return { status: 'S', dados };
   }
@@ -2118,12 +2151,16 @@ export class SyncService {
 
   const dados = Array.from(gruposMap.values());
 
-  const formatarData = (d: string) =>
-    new Date(d + 'T12:00:00').toLocaleDateString('pt-BR', {
-      day: '2-digit',
-      month: '2-digit',
-      year: 'numeric',
-    });
+ const formatarData = (d: any) => {
+  if (!d) return '';
+
+  const valor = String(d).slice(0, 10); // pega yyyy-mm-dd com segurança
+  const [ano, mes, dia] = valor.split('-');
+
+  if (!ano || !mes || !dia) return '';
+
+  return `${dia}/${mes}/${ano}`;
+};
 
   return {
     status: 'S',

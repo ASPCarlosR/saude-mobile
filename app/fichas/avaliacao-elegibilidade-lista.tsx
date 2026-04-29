@@ -10,6 +10,54 @@ import { Q } from '@nozbe/watermelondb';
 import { elegibilidadeCollection } from '@/db';
 import { Colors } from './colors';
 
+
+const normalizarFiltro = (valor: any) =>
+  String(valor ?? '')
+    .trim()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toUpperCase();
+
+const lerCampo = (item: any, nomes: string[]) => {
+  for (const nome of nomes) {
+    const direto = item?.[nome];
+    if (direto !== undefined && direto !== null && String(direto).trim() !== '') return direto;
+
+    const raw = item?._raw?.[nome];
+    if (raw !== undefined && raw !== null && String(raw).trim() !== '') return raw;
+  }
+  return '';
+};
+
+const montarTextoEndereco = (item: any) => {
+  const partes = [
+    lerCampo(item, ['endereco', 'logradouro', 'logradouroNome', 'logradouro_nome', 'bairro', 'bairroNome', 'bairro_nome', 'numero']),
+    lerCampo(item, ['dados']),
+  ];
+
+  return normalizarFiltro(partes.join(' '));
+};
+
+const filtrarPorPessoaEEndereco = (itens: any[], filtros: any) => {
+  const termoPessoa = normalizarFiltro(filtros.buscaRapida);
+  const termoEndereco = normalizarFiltro(filtros.endereco);
+
+  return itens.filter((item: any) => {
+    const textoPessoa = normalizarFiltro([
+      lerCampo(item, ['id', 'intId', 'int_id', 'pessoaId', 'pessoa_id', 'pacienteId', 'paciente_id', 'usuarioId', 'usuario_id']),
+      lerCampo(item, ['nome', 'pacienteNome', 'paciente_nome', 'cidadaoNome', 'cidadao_nome', 'responsavelNome', 'responsavel_nome']),
+      lerCampo(item, ['cpf', 'cns']),
+    ].join(' '));
+
+    const textoEndereco = montarTextoEndereco(item);
+
+    const passouPessoa = !termoPessoa || textoPessoa.includes(termoPessoa);
+    const passouEndereco = !termoEndereco || textoEndereco.includes(termoEndereco);
+
+    return passouPessoa && passouEndereco;
+  });
+};
+
 interface ElegibilidadeItem {
   id: string;
   pacienteNome: string;
@@ -19,6 +67,7 @@ interface ElegibilidadeItem {
 
 interface Filtros {
   buscaRapida: string;
+  endereco: string;
   statusSync: string;
 }
 
@@ -32,10 +81,18 @@ export default function AvaliacaoElegibilidadeListaScreen() {
   const [carregando, setCarregando] = useState(true);
   
   const [modalFiltro, setModalFiltro] = useState(false);
-  const [filtros, setFiltros] = useState<Filtros>({ buscaRapida: '', statusSync: 'T' });
+  const [filtros, setFiltros] = useState<Filtros>({ buscaRapida: '', endereco: '', statusSync: 'T' });
   const filtrosRef = useRef(filtros);
   
   useEffect(() => { filtrosRef.current = filtros; }, [filtros]);
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      carregarDados();
+    }, 250);
+
+    return () => clearTimeout(timer);
+  }, [filtros]);
 
   useFocusEffect(
     React.useCallback(() => { carregarDados(); }, [])
@@ -47,14 +104,13 @@ export default function AvaliacaoElegibilidadeListaScreen() {
       const f = filtrosRef.current;
       const condicoes: Q.Clause[] = [];
       
-      if (f.buscaRapida) {
-        condicoes.push(Q.where('paciente_nome', Q.like(`%${f.buscaRapida}%`)));
-      }
+      // Busca por pessoa/endereço é aplicada em memória logo abaixo para permitir nome, ID e endereço sem depender de colunas específicas.
+
       if (f.statusSync === 'S') condicoes.push(Q.where('sync_status', 'synced'));
       else if (f.statusSync === 'P') condicoes.push(Q.where('sync_status', Q.notEq('synced')));
 
       const resultados = await elegibilidadeCollection.query(...condicoes).fetch();
-      setLista(resultados as any);
+      setLista(filtrarPorPessoaEEndereco(resultados as any[], f) as any);
     } catch (error) {
       console.error(error);
     } finally {
@@ -63,7 +119,7 @@ export default function AvaliacaoElegibilidadeListaScreen() {
   }
 
   const aplicarFiltros = () => { setModalFiltro(false); carregarDados(); };
-  const limparFiltros = () => { setFiltros({ buscaRapida: '', statusSync: 'T' }); };
+  const limparFiltros = () => { setFiltros({ buscaRapida: '', endereco: '', statusSync: 'T' }); };
 
   const renderItem = ({ item }: { item: any }) => {
     const isSynced = item.syncStatus === 'synced';
@@ -97,13 +153,30 @@ export default function AvaliacaoElegibilidadeListaScreen() {
         <View style={{ width: 32 }} />
       </View>
 
+      {/* FILTROS EM TEMPO REAL */}
       <View style={styles.searchContainer}>
         <View style={styles.searchInputWrap}>
-          <Ionicons name="search" size={20} color="#9CA3AF" />
-          <TextInput style={styles.searchInput} placeholder="Buscar cidadão..." value={filtros.buscaRapida} onChangeText={v => setFiltros({ ...filtros, buscaRapida: v })} onSubmitEditing={carregarDados} returnKeyType="search" />
-          <TouchableOpacity style={styles.btnSearchAction} onPress={carregarDados} activeOpacity={0.8}><Ionicons name="search" size={20} color="#fff" /></TouchableOpacity>
+          <Ionicons name="search" size={20} color={theme.textMuted} style={{ marginLeft: 12 }} />
+          <TextInput
+            style={[styles.searchInput, { color: theme.text }]}
+            placeholder="Nome, ID, CNS ou CPF..."
+            placeholderTextColor={theme.textMuted}
+            value={filtros.buscaRapida}
+            onChangeText={v => setFiltros({ ...filtros, buscaRapida: v })}
+            returnKeyType="search"
+          />
         </View>
-        <TouchableOpacity style={styles.filterBtn} onPress={() => setModalFiltro(true)}><Ionicons name="options-outline" size={22} color={theme.primary} /></TouchableOpacity>
+        <View style={styles.searchInputWrap}>
+          <Ionicons name="location-outline" size={20} color={theme.textMuted} style={{ marginLeft: 12 }} />
+          <TextInput
+            style={[styles.searchInput, { color: theme.text }]}
+            placeholder="Endereço / rua..."
+            placeholderTextColor={theme.textMuted}
+            value={filtros.endereco}
+            onChangeText={v => setFiltros({ ...filtros, endereco: v })}
+            returnKeyType="search"
+          />
+        </View>
       </View>
 
       {carregando ? (
@@ -151,7 +224,7 @@ const getStyles = (theme: any) => StyleSheet.create({
   header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', padding: 16, backgroundColor: theme.card, borderBottomWidth: 1, borderBottomColor: theme.border },
   backBtn: { padding: 4 },
   headerTitulo: { fontSize: 18, fontWeight: '700', color: '#EC4899' },
-  searchContainer: { flexDirection: 'row', padding: 12, backgroundColor: theme.card, borderBottomWidth: 1, borderBottomColor: theme.border, gap: 8 },
+  searchContainer: { padding: 12, backgroundColor: theme.card, borderBottomWidth: 1, borderBottomColor: theme.border, gap: 8 },
   searchInputWrap: { flex: 1, flexDirection: 'row', alignItems: 'center', backgroundColor: theme.background, borderRadius: 8, borderWidth: 1, borderColor: theme.border, overflow: 'hidden', paddingLeft: 12 },
   searchInput: { flex: 1, height: 44, paddingHorizontal: 8, fontSize: 14, color: theme.text },
   btnSearchAction: { width: 44, height: 44, backgroundColor: '#EC4899', alignItems: 'center', justifyContent: 'center' },

@@ -770,7 +770,7 @@ export async function sincronizar() {
   await varrerTabela('vacinas', 15);
 
   if (registrosSync.length === 0) {
-    return { mensagem: 'Dados recebidos com sucesso! Seu celular já estava atualizado.' };
+    return { mensagem: 'Dados recebidos com sucesso! Seu aparelho está atualizado' };
   }
 
   const bodySync = {

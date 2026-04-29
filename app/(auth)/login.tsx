@@ -19,6 +19,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useAuthStore, Profissional, Unidade, Equipe } from '../../src/store/index';
 import { API_BASE_URL } from '../../src/config';
 import { Colors } from '../fichas/colors';
@@ -33,6 +34,18 @@ import {
 import type { TenantConfigPublica, TenantResumo } from '../../src/types/tentant';
 
 type Municipio = TenantResumo;
+
+const TUTORIAL_KEY = '@home_tutorial_v1';
+
+function normalizarLogin(valor: string) {
+  return String(valor ?? '')
+    .trim()
+    .toUpperCase();
+}
+
+function normalizarSenhaVisual(valor: string) {
+  return String(valor ?? '').replace(/\s+$/, '');
+}
 
 export default function LoginScreen() {
   const theme = Colors[useColorScheme() ?? 'light'];
@@ -112,11 +125,16 @@ export default function LoginScreen() {
       return;
     }
 
-    if (!loginStr || !senha) {
+    const loginNormalizado = normalizarLogin(loginStr);
+    const senhaNormalizada = String(senha ?? '').trim();
+
+    if (!loginNormalizado || !senhaNormalizada) {
       Alert.alert('Atenção', 'Preencha o login e a senha.');
       return;
     }
 
+    setLoginStr(loginNormalizado);
+    setSenha(senhaNormalizada);
     setCarregando(true);
 
     try {
@@ -132,8 +150,8 @@ export default function LoginScreen() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           municipio: municipioSelecionado.slug,
-          login: loginStr,
-          senha: senha,
+          login: loginNormalizado,
+          senha: senhaNormalizada,
         }),
       });
 
@@ -222,7 +240,13 @@ export default function LoginScreen() {
     setReidratado(true);
     setBloqueado(false);
 
-    router.replace('/(tabs)/home');
+    const jaViuTutorial = await AsyncStorage.getItem(TUTORIAL_KEY);
+
+    if (jaViuTutorial === 'sim') {
+      router.replace('/(tabs)/home');
+    } else {
+      router.replace('/tutorial');
+    }
   };
 
   return (
@@ -295,8 +319,9 @@ export default function LoginScreen() {
                     placeholder="Usuário"
                     placeholderTextColor={theme.textMuted}
                     value={loginStr}
-                    onChangeText={setLoginStr}
-                    autoCapitalize="none"
+                    onChangeText={(texto) => setLoginStr(normalizarLogin(texto))}
+                    onBlur={() => setLoginStr((prev) => normalizarLogin(prev))}
+                    autoCapitalize="characters"
                     autoCorrect={false}
                     returnKeyType="next"
                   />
@@ -314,7 +339,8 @@ export default function LoginScreen() {
                     placeholder="Senha"
                     placeholderTextColor={theme.textMuted}
                     value={senha}
-                    onChangeText={setSenha}
+                    onChangeText={(texto) => setSenha(normalizarSenhaVisual(texto))}
+                    onBlur={() => setSenha((prev) => String(prev ?? '').trim())}
                     secureTextEntry={!mostrarSenha}
                     autoCapitalize="none"
                     autoCorrect={false}

@@ -1,4 +1,3 @@
-
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
@@ -6,6 +5,7 @@ import {
   ScrollView,
   StyleSheet,
   Text,
+  TextInput,
   TouchableOpacity,
   View,
   useColorScheme,
@@ -49,6 +49,14 @@ function initials(nome: string) {
   if (partes.length === 1) return partes[0][0].toUpperCase();
 
   return `${partes[0][0]}${partes[partes.length - 1][0]}`.toUpperCase();
+}
+
+function normalizeText(texto: string) {
+  return String(texto || '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .trim();
 }
 
 const AVATAR_COLORS = [
@@ -254,6 +262,7 @@ export default function AgendamentoScreen() {
   const [semanaInicio, setSemanaInicio] = useState(startOfWeek(new Date(), { weekStartsOn: 1 }));
   const [profissionais, setProfissionais] = useState<Profissional[]>([]);
   const [profissionalSelecionado, setProfissionalSelecionado] = useState<number | null>(null);
+  const [buscaProfissional, setBuscaProfissional] = useState('');
   const [dados, setDados] = useState<VagaGrupo[]>([]);
   const [carregandoLista, setCarregandoLista] = useState(false);
   const [carregandoProfissionais, setCarregandoProfissionais] = useState(false);
@@ -271,6 +280,18 @@ export default function AgendamentoScreen() {
   );
 
   const totalProfissionais = dados.length;
+
+  const profissionaisFiltrados = useMemo(() => {
+    const termo = normalizeText(buscaProfissional);
+
+    if (!termo) return profissionais;
+
+    return profissionais.filter((prof) => {
+      const nome = normalizeText(prof.nome);
+      const especialidade = normalizeText(prof.especialidade || '');
+      return nome.includes(termo) || especialidade.includes(termo);
+    });
+  }, [profissionais, buscaProfissional]);
 
   const carregarProfissionais = useCallback(async () => {
     setCarregandoProfissionais(true);
@@ -452,6 +473,24 @@ export default function AgendamentoScreen() {
         <View style={styles.filterBox}>
           <Text style={styles.filterTitle}>Filtrar profissional</Text>
 
+          <View style={styles.searchBox}>
+            <Ionicons name="search-outline" size={16} color="#64748B" />
+            <TextInput
+              style={styles.searchInput}
+              value={buscaProfissional}
+              onChangeText={setBuscaProfissional}
+              placeholder="Buscar profissional em tempo real..."
+              placeholderTextColor="#94A3B8"
+              autoCapitalize="words"
+              returnKeyType="search"
+            />
+            {!!buscaProfissional && (
+              <TouchableOpacity onPress={() => setBuscaProfissional('')}>
+                <Ionicons name="close-circle" size={18} color="#94A3B8" />
+              </TouchableOpacity>
+            )}
+          </View>
+
           <ScrollView
             horizontal
             showsHorizontalScrollIndicator={false}
@@ -483,8 +522,8 @@ export default function AgendamentoScreen() {
               <View style={styles.filterLoading}>
                 <ActivityIndicator size="small" color="#0A4F6E" />
               </View>
-            ) : (
-              profissionais.map((prof) => {
+            ) : profissionaisFiltrados.length > 0 ? (
+              profissionaisFiltrados.map((prof) => {
                 const ativo = profissionalSelecionado === prof.id;
                 const cor = avatarColor(prof.id);
 
@@ -536,6 +575,11 @@ export default function AgendamentoScreen() {
                   </TouchableOpacity>
                 );
               })
+            ) : (
+              <View style={styles.noSearchResult}>
+                <Ionicons name="search-outline" size={14} color="#94A3B8" />
+                <Text style={styles.noSearchResultText}>Nenhum profissional encontrado</Text>
+              </View>
             )}
           </ScrollView>
         </View>
@@ -760,6 +804,25 @@ const getStyles = (theme: any) =>
       paddingHorizontal: 14,
       marginBottom: 10,
     },
+    searchBox: {
+      marginHorizontal: 14,
+      marginBottom: 10,
+      height: 44,
+      borderRadius: 14,
+      borderWidth: 1,
+      borderColor: '#E2E8F0',
+      backgroundColor: '#F8FAFC',
+      paddingHorizontal: 12,
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 8,
+    },
+    searchInput: {
+      flex: 1,
+      fontSize: 14,
+      color: '#0F172A',
+      paddingVertical: 0,
+    },
     filterScroll: {
       paddingHorizontal: 14,
       gap: 8,
@@ -813,6 +876,22 @@ const getStyles = (theme: any) =>
     },
     filterChipSubtextActive: {
       color: 'rgba(255,255,255,0.8)',
+    },
+    noSearchResult: {
+      minHeight: 44,
+      borderRadius: 14,
+      backgroundColor: '#F8FAFC',
+      borderWidth: 1,
+      borderColor: '#E2E8F0',
+      paddingHorizontal: 12,
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 8,
+    },
+    noSearchResultText: {
+      fontSize: 12,
+      color: '#64748B',
+      fontWeight: '600',
     },
 
     summaryRow: {

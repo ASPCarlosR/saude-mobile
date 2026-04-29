@@ -156,22 +156,22 @@ export default function MarcadorConsumoListaScreen() {
       {/* FILTROS EM TEMPO REAL */}
       <View style={styles.searchContainer}>
         <View style={styles.searchInputWrap}>
-          <Ionicons name="search" size={20} color={theme.textMuted} style={{ marginLeft: 12 }} />
+          <Ionicons name="search" size={20} color={theme.textMuted || "#64748B"} style={{ marginLeft: 12 }} />
           <TextInput
-            style={[styles.searchInput, { color: theme.text }]}
+            style={[styles.searchInput, { color: theme.text || "#0F172A" }]}
             placeholder="Nome, ID, CNS ou CPF..."
-            placeholderTextColor={theme.textMuted}
+            placeholderTextColor={theme.textMuted || "#64748B"}
             value={filtros.buscaRapida}
             onChangeText={v => setFiltros({ ...filtros, buscaRapida: v })}
             returnKeyType="search"
           />
         </View>
         <View style={styles.searchInputWrap}>
-          <Ionicons name="location-outline" size={20} color={theme.textMuted} style={{ marginLeft: 12 }} />
+          <Ionicons name="location-outline" size={20} color={theme.textMuted || "#64748B"} style={{ marginLeft: 12 }} />
           <TextInput
-            style={[styles.searchInput, { color: theme.text }]}
+            style={[styles.searchInput, { color: theme.text || "#0F172A" }]}
             placeholder="Endereço / rua..."
-            placeholderTextColor={theme.textMuted}
+            placeholderTextColor={theme.textMuted || "#64748B"}
             value={filtros.endereco}
             onChangeText={v => setFiltros({ ...filtros, endereco: v })}
             returnKeyType="search"
@@ -222,9 +222,9 @@ const getStyles = (theme: any) => StyleSheet.create({
   header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', padding: 16, backgroundColor: theme.card, borderBottomWidth: 1, borderBottomColor: theme.border },
   backBtn: { padding: 4 },
   headerTitulo: { fontSize: 18, fontWeight: '700', color: theme.success },
-  searchContainer: { padding: 12, backgroundColor: theme.card, borderBottomWidth: 1, borderBottomColor: theme.border, gap: 8 },
-  searchInputWrap: { flex: 1, flexDirection: 'row', alignItems: 'center', backgroundColor: theme.background, borderRadius: 8, borderWidth: 1, borderColor: theme.border, overflow: 'hidden', paddingLeft: 12 },
-  searchInput: { flex: 1, height: 44, paddingHorizontal: 8, fontSize: 14, color: theme.text },
+  searchContainer: { paddingHorizontal: 12, paddingTop: 10, paddingBottom: 12, backgroundColor: theme.card, borderBottomWidth: 1, borderBottomColor: theme.border, gap: 10 },
+  searchInputWrap: { width: '100%', minHeight: 48, flexDirection: 'row', alignItems: 'center', backgroundColor: '#FFFFFF', borderRadius: 12, borderWidth: 1, borderColor: '#CBD5E1', overflow: 'hidden' },
+  searchInput: { flex: 1, minHeight: 48, paddingHorizontal: 10, paddingVertical: 10, fontSize: 14, color: '#0F172A' },
   btnSearchAction: { width: 44, height: 44, backgroundColor: theme.success, alignItems: 'center', justifyContent: 'center' },
   filterBtn: { width: 44, height: 44, backgroundColor: theme.successBg, borderRadius: 8, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: theme.success },
   center: { flex: 1, justifyContent: 'center', alignItems: 'center', gap: 12 },

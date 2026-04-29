@@ -75,21 +75,21 @@ function AtividadeColetivaListaScreen() {
 
       <View style={styles.searchContainer}>
         <View style={styles.searchInputWrap}>
-          <Ionicons name="search" size={20} color={theme.textMuted} style={{ marginLeft: 12 }} />
+          <Ionicons name="search" size={20} color={theme.textMuted || "#64748B"} style={{ marginLeft: 12 }} />
           <TextInput
-            style={[styles.searchInput, { color: theme.text }]}
+            style={[styles.searchInput, { color: theme.text || "#0F172A" }]}
             placeholder="Nome, ID ou dado da atividade..."
-            placeholderTextColor={theme.textMuted}
+            placeholderTextColor={theme.textMuted || "#64748B"}
             value={buscaRapida}
             onChangeText={setBuscaRapida}
           />
         </View>
         <View style={styles.searchInputWrap}>
-          <Ionicons name="location-outline" size={20} color={theme.textMuted} style={{ marginLeft: 12 }} />
+          <Ionicons name="location-outline" size={20} color={theme.textMuted || "#64748B"} style={{ marginLeft: 12 }} />
           <TextInput
-            style={[styles.searchInput, { color: theme.text }]}
+            style={[styles.searchInput, { color: theme.text || "#0F172A" }]}
             placeholder="Endereço / local..."
-            placeholderTextColor={theme.textMuted}
+            placeholderTextColor={theme.textMuted || "#64748B"}
             value={endereco}
             onChangeText={setEndereco}
           />
@@ -121,9 +121,9 @@ const getStyles = (theme: any) => StyleSheet.create({
   safe: { flex: 1, backgroundColor: theme.background },
   header: { flexDirection: 'row', alignItems: 'center', padding: 16, backgroundColor: theme.card, borderBottomWidth: 1, borderColor: theme.border },
   headerTitulo: { flex: 1, fontSize: 18, fontWeight: 'bold', color: theme.primary, textAlign: 'center' },
-  searchContainer: { padding: 12, backgroundColor: theme.card, borderBottomWidth: 1, borderBottomColor: theme.border, gap: 8 },
-  searchInputWrap: { flexDirection: 'row', alignItems: 'center', backgroundColor: theme.background, borderRadius: 8, borderWidth: 1, borderColor: theme.border, overflow: 'hidden' },
-  searchInput: { flex: 1, height: 44, paddingHorizontal: 8, fontSize: 14 },
+  searchContainer: { paddingHorizontal: 12, paddingTop: 10, paddingBottom: 12, backgroundColor: theme.card, borderBottomWidth: 1, borderBottomColor: theme.border, gap: 10 },
+  searchInputWrap: { width: '100%', minHeight: 48, flexDirection: 'row', alignItems: 'center', backgroundColor: '#FFFFFF', borderRadius: 12, borderWidth: 1, borderColor: '#CBD5E1', overflow: 'hidden' },
+  searchInput: { flex: 1, minHeight: 48, paddingHorizontal: 10, paddingVertical: 10, fontSize: 14, color: '#0F172A' },
   card: { backgroundColor: theme.card, padding: 16, borderRadius: 12, marginBottom: 10, elevation: 2 },
   cardLinha: { flexDirection: 'row', alignItems: 'center' },
   cardTitulo: { fontSize: 14, fontWeight: 'bold', color: theme.text },

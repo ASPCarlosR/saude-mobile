@@ -813,7 +813,7 @@ export default function CadastroIndividualScreen() {
               </View>
               <View style={styles.row}>
                 <Input label="Profissional" value={form.profissionalNome || profissional?.nome} readonly half />
-                <Input label="Equipe" value={`Equipe ${form.equipeNome || equipe?.nome || ''} ${form.equipeIne || equipe?.ine || ''}`} readonly half />
+                <Input label="Equipe" value={`${form.equipeNome || equipe?.nome || ''} ${form.equipeIne || ''}`} readonly half />
               </View>
             </Secao>
 

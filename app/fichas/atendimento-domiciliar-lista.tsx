@@ -173,22 +173,22 @@ export default function AtendimentoDomiciliarListaScreen() {
       {/* FILTROS EM TEMPO REAL */}
       <View style={styles.searchContainer}>
         <View style={styles.searchInputWrap}>
-          <Ionicons name="search" size={20} color={theme.textMuted} style={{ marginLeft: 12 }} />
+          <Ionicons name="search" size={20} color={theme.textMuted || "#64748B"} style={{ marginLeft: 12 }} />
           <TextInput
-            style={[styles.searchInput, { color: theme.text }]}
+            style={[styles.searchInput, { color: theme.text || "#0F172A" }]}
             placeholder="Nome, ID, CNS ou CPF..."
-            placeholderTextColor={theme.textMuted}
+            placeholderTextColor={theme.textMuted || "#64748B"}
             value={filtros.buscaRapida}
             onChangeText={v => setFiltros({ ...filtros, buscaRapida: v })}
             returnKeyType="search"
           />
         </View>
         <View style={styles.searchInputWrap}>
-          <Ionicons name="location-outline" size={20} color={theme.textMuted} style={{ marginLeft: 12 }} />
+          <Ionicons name="location-outline" size={20} color={theme.textMuted || "#64748B"} style={{ marginLeft: 12 }} />
           <TextInput
-            style={[styles.searchInput, { color: theme.text }]}
+            style={[styles.searchInput, { color: theme.text || "#0F172A" }]}
             placeholder="Endereço / rua..."
-            placeholderTextColor={theme.textMuted}
+            placeholderTextColor={theme.textMuted || "#64748B"}
             value={filtros.endereco}
             onChangeText={v => setFiltros({ ...filtros, endereco: v })}
             returnKeyType="search"
@@ -231,9 +231,9 @@ export default function AtendimentoDomiciliarListaScreen() {
             <View style={styles.modalBody}>
               <Text style={styles.label}>Período</Text>
               <View style={[styles.row, { marginBottom: 16 }]}>
-                <TextInput style={[styles.input, { flex: 1, color: theme.text }]} placeholderTextColor={theme.textMuted} placeholder="DD/MM/AAAA" value={filtros.dataInicio} onChangeText={v => setFiltros({ ...filtros, dataInicio: v })} keyboardType="numeric" />
+                <TextInput style={[styles.input, { flex: 1, color: theme.text }]} placeholderTextColor={theme.textMuted || "#64748B"} placeholder="DD/MM/AAAA" value={filtros.dataInicio} onChangeText={v => setFiltros({ ...filtros, dataInicio: v })} keyboardType="numeric" />
                 <Text style={{ marginTop: 10, color: theme.textMuted }}>até</Text>
-                <TextInput style={[styles.input, { flex: 1, color: theme.text }]} placeholderTextColor={theme.textMuted} placeholder="DD/MM/AAAA" value={filtros.dataFim} onChangeText={v => setFiltros({ ...filtros, dataFim: v })} keyboardType="numeric" />
+                <TextInput style={[styles.input, { flex: 1, color: theme.text }]} placeholderTextColor={theme.textMuted || "#64748B"} placeholder="DD/MM/AAAA" value={filtros.dataFim} onChangeText={v => setFiltros({ ...filtros, dataFim: v })} keyboardType="numeric" />
               </View>
               <Text style={styles.label}>Situação</Text>
               <View style={styles.radioGroup}>
@@ -259,9 +259,9 @@ const getStyles = (theme: any) => StyleSheet.create({
   safe: { flex: 1, backgroundColor: theme.background },
   header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', padding: 16, backgroundColor: theme.card, borderBottomWidth: 1, borderBottomColor: theme.border },
   backBtn: { padding: 4 }, headerTitulo: { fontSize: 18, fontWeight: '700', color: '#0A4F6E' },
-  searchContainer: { padding: 12, backgroundColor: theme.card, borderBottomWidth: 1, borderBottomColor: theme.border, gap: 8 },
-  searchInputWrap: { flex: 1, flexDirection: 'row', alignItems: 'center', backgroundColor: theme.background, borderRadius: 8, borderWidth: 1, borderColor: theme.border },
-  searchInput: { flex: 1, height: 44, marginLeft: 8, fontSize: 14 },
+  searchContainer: { paddingHorizontal: 12, paddingTop: 10, paddingBottom: 12, backgroundColor: theme.card, borderBottomWidth: 1, borderBottomColor: theme.border, gap: 10 },
+  searchInputWrap: { width: '100%', minHeight: 48, flexDirection: 'row', alignItems: 'center', backgroundColor: '#FFFFFF', borderRadius: 12, borderWidth: 1, borderColor: '#CBD5E1', overflow: 'hidden' },
+  searchInput: { flex: 1, minHeight: 48, paddingHorizontal: 10, paddingVertical: 10, fontSize: 14, color: '#0F172A' },
   filterBtn: { width: 44, height: 44, backgroundColor: theme.infoBg, borderRadius: 8, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: theme.info },
   center: { flex: 1, justifyContent: 'center', alignItems: 'center', gap: 12 },
   loadingTxt: { color: theme.textMuted, fontSize: 14 },

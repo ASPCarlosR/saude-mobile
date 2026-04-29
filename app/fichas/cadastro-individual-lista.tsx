@@ -199,22 +199,22 @@ export default function CadastroIndividualListaScreen() {
       {/* FILTROS EM TEMPO REAL */}
       <View style={styles.searchContainer}>
         <View style={styles.searchInputWrap}>
-          <Ionicons name="search" size={20} color={theme.textMuted} style={{ marginLeft: 12 }} />
+          <Ionicons name="search" size={20} color={theme.textMuted || "#64748B"} style={{ marginLeft: 12 }} />
           <TextInput
-            style={[styles.searchInput, { color: theme.text }]}
+            style={[styles.searchInput, { color: theme.text || "#0F172A" }]}
             placeholder="Nome, ID, CNS ou CPF..."
-            placeholderTextColor={theme.textMuted}
+            placeholderTextColor={theme.textMuted || "#64748B"}
             value={filtros.buscaRapida}
             onChangeText={v => setFiltros({ ...filtros, buscaRapida: v })}
             returnKeyType="search"
           />
         </View>
         <View style={styles.searchInputWrap}>
-          <Ionicons name="location-outline" size={20} color={theme.textMuted} style={{ marginLeft: 12 }} />
+          <Ionicons name="location-outline" size={20} color={theme.textMuted || "#64748B"} style={{ marginLeft: 12 }} />
           <TextInput
-            style={[styles.searchInput, { color: theme.text }]}
+            style={[styles.searchInput, { color: theme.text || "#0F172A" }]}
             placeholder="Endereço / rua..."
-            placeholderTextColor={theme.textMuted}
+            placeholderTextColor={theme.textMuted || "#64748B"}
             value={filtros.endereco}
             onChangeText={v => setFiltros({ ...filtros, endereco: v })}
             returnKeyType="search"
@@ -265,7 +265,7 @@ export default function CadastroIndividualListaScreen() {
               <Text style={styles.label}>Microárea</Text>
               <TextInput 
                 style={[styles.input, { color: theme.text }]} 
-                placeholderTextColor={theme.textMuted}
+                placeholderTextColor={theme.textMuted || "#64748B"}
                 placeholder="Ex: 01, 02..."
                 value={filtros.microArea} 
                 onChangeText={v => setFiltros({ ...filtros, microArea: v })} 
@@ -303,9 +303,9 @@ const getStyles = (theme: any) => StyleSheet.create({
   backBtn: { padding: 4 },
   headerTitulo: { fontSize: 18, fontWeight: '700', color: theme.primary },
   
-  searchContainer: { padding: 12, backgroundColor: theme.card, borderBottomWidth: 1, borderBottomColor: theme.border, gap: 8 },
-  searchInputWrap: { flex: 1, flexDirection: 'row', alignItems: 'center', backgroundColor: theme.background, borderRadius: 8, borderWidth: 1, borderColor: theme.border, overflow: 'hidden' },
-  searchInput: { flex: 1, height: 44, paddingHorizontal: 8, fontSize: 14 },
+  searchContainer: { paddingHorizontal: 12, paddingTop: 10, paddingBottom: 12, backgroundColor: theme.card, borderBottomWidth: 1, borderBottomColor: theme.border, gap: 10 },
+  searchInputWrap: { width: '100%', minHeight: 48, flexDirection: 'row', alignItems: 'center', backgroundColor: '#FFFFFF', borderRadius: 12, borderWidth: 1, borderColor: '#CBD5E1', overflow: 'hidden' },
+  searchInput: { flex: 1, minHeight: 48, paddingHorizontal: 10, paddingVertical: 10, fontSize: 14, color: '#0F172A' },
   searchActionBtn: { width: 44, height: 44, backgroundColor: theme.info, alignItems: 'center', justifyContent: 'center' },
   filterBtn: { width: 44, height: 44, backgroundColor: theme.infoBg, borderRadius: 8, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: theme.info },
   

@@ -30,13 +30,68 @@ const lerCampo = (item: any, nomes: string[]) => {
   return '';
 };
 
-const montarTextoEndereco = (item: any) => {
-  const partes = [
-    lerCampo(item, ['endereco', 'logradouro', 'logradouroNome', 'logradouro_nome', 'bairro', 'bairroNome', 'bairro_nome', 'numero']),
-    lerCampo(item, ['dados']),
-  ];
+const lerDadosDomicilio = (item: any) => {
+  try {
+    const rawDados = item?.dados || item?._raw?.dados;
+    if (!rawDados) return {};
+    return typeof rawDados === 'string' ? JSON.parse(rawDados) : rawDados;
+  } catch (e) {
+    return {};
+  }
+};
 
-  return normalizarFiltro(partes.join(' '));
+const montarEnderecoExibicao = (item: any) => {
+  const extras = lerDadosDomicilio(item);
+
+  const endereco =
+    lerCampo(item, ['endereco', 'logradouro', 'logradouroNome', 'logradouro_nome']) ||
+    extras?.endereco ||
+    extras?.logradouro ||
+    extras?.logradouroNome ||
+    '';
+
+  const numero =
+    lerCampo(item, ['numero', 'num', 'enderecoNumero', 'endereco_numero']) ||
+    extras?.numero ||
+    extras?.enderecoNumero ||
+    '';
+
+  const bairro =
+    lerCampo(item, ['bairro', 'bairroNome', 'bairro_nome']) ||
+    extras?.bairro ||
+    extras?.bairroNome ||
+    '';
+
+  const partes = [];
+  if (endereco) partes.push(String(endereco).trim());
+  if (numero) partes.push(String(numero).trim());
+  if (bairro) partes.push(String(bairro).trim());
+
+  return partes.length ? partes.join(', ') : '--';
+};
+
+const montarNomesMoradores = (item: any) => {
+  const extras = lerDadosDomicilio(item);
+  const moradores = Array.isArray(extras?.moradores) ? extras.moradores : [];
+
+  const nomes = moradores
+    .map((m: any) => m?.nome || m?.sdpessoaprenome || m?.sdpessoanom || '')
+    .filter((nome: any) => String(nome).trim() !== '');
+
+  const responsavel = moradores.find((m: any) => m?.ehResponsavel || m?.responsavel || m?.sddomiciliopacientesrf === 'S');
+  const nomeResponsavel = responsavel?.nome || responsavel?.sdpessoaprenome || responsavel?.sdpessoanom || '';
+
+  return {
+    responsavel: nomeResponsavel || nomes[0] || 'Sem Responsável Familiar',
+    textoBusca: nomes.join(' '),
+  };
+};
+
+const montarTextoEndereco = (item: any) => {
+  return normalizarFiltro([
+    montarEnderecoExibicao(item),
+    lerCampo(item, ['dados']),
+  ].join(' '));
 };
 
 const filtrarPorPessoaEEndereco = (itens: any[], filtros: any) => {
@@ -44,10 +99,12 @@ const filtrarPorPessoaEEndereco = (itens: any[], filtros: any) => {
   const termoEndereco = normalizarFiltro(filtros.endereco);
 
   return itens.filter((item: any) => {
+    const nomesMoradores = montarNomesMoradores(item);
+
     const textoPessoa = normalizarFiltro([
-      lerCampo(item, ['id', 'intId', 'int_id', 'pessoaId', 'pessoa_id', 'pacienteId', 'paciente_id', 'usuarioId', 'usuario_id']),
-      lerCampo(item, ['nome', 'pacienteNome', 'paciente_nome', 'cidadaoNome', 'cidadao_nome', 'responsavelNome', 'responsavel_nome']),
-      lerCampo(item, ['cpf', 'cns']),
+      lerCampo(item, ['id', 'intId', 'int_id']),
+      nomesMoradores.responsavel,
+      nomesMoradores.textoBusca,
     ].join(' '));
 
     const textoEndereco = montarTextoEndereco(item);
@@ -141,17 +198,10 @@ export default function CadastroDomiciliarListaScreen() {
   // ---- Renders ----
   const renderItem = ({ item }: { item: any }) => {
     
-    const isSynced = item.syncStatus === 'synced';
-    let responsavel = 'Sem Responsável Familiar';
-    
-    try {
-      const rawDados = (item as any).dados || (item as any)._raw?.dados;
-      const extras = typeof rawDados === 'string' ? JSON.parse(rawDados) : (rawDados || {});
-      if (extras.moradores && extras.moradores.length > 0) {
-        const resp = extras.moradores.find((m: any) => m.ehResponsavel);
-        responsavel = resp ? resp.nome : extras.moradores[0].nome;
-      }
-    } catch(e) {}
+    const isSynced = item.syncStatus === 'synced' || item._raw?.sync_status === 'synced';
+    const nomesMoradores = montarNomesMoradores(item);
+    const responsavel = nomesMoradores.responsavel;
+    const enderecoExibicao = montarEnderecoExibicao(item);
 
     return (
     <TouchableOpacity style={[styles.card, isTablet && styles.cardTablet]} onPress={() => router.push(`/fichas/cadastro-domiciliar?id=${item.id}`)} activeOpacity={0.7}>
@@ -164,7 +214,7 @@ export default function CadastroDomiciliarListaScreen() {
       
       <View style={styles.cardBody}>
         <Text style={styles.infoLabel}>Código Domicílio: <Text style={styles.infoVal}>{item.intId || '--'}</Text></Text>
-        <Text style={styles.infoLabel}>Endereço: <Text style={styles.infoVal}>{item.endereco || '--'}, {item.numero || 'S/N'}</Text></Text>
+        <Text style={styles.infoLabel}>Endereço: <Text style={styles.infoVal}>{enderecoExibicao}</Text></Text>
         <Text style={styles.infoLabel}>Microárea: <Text style={styles.infoVal}>{item.microArea || '--'}</Text></Text>
       </View>
 
@@ -194,22 +244,22 @@ export default function CadastroDomiciliarListaScreen() {
       {/* FILTROS EM TEMPO REAL */}
       <View style={styles.searchContainer}>
         <View style={styles.searchInputWrap}>
-          <Ionicons name="search" size={20} color={theme.textMuted} style={{ marginLeft: 12 }} />
+          <Ionicons name="search" size={20} color={theme.textMuted || "#64748B"} style={{ marginLeft: 12 }} />
           <TextInput
-            style={[styles.searchInput, { color: theme.text }]}
+            style={[styles.searchInput, { color: theme.text || "#0F172A" }]}
             placeholder="Nome, ID, CNS ou CPF..."
-            placeholderTextColor={theme.textMuted}
+            placeholderTextColor={theme.textMuted || "#64748B"}
             value={filtros.buscaRapida}
             onChangeText={v => setFiltros({ ...filtros, buscaRapida: v })}
             returnKeyType="search"
           />
         </View>
         <View style={styles.searchInputWrap}>
-          <Ionicons name="location-outline" size={20} color={theme.textMuted} style={{ marginLeft: 12 }} />
+          <Ionicons name="location-outline" size={20} color={theme.textMuted || "#64748B"} style={{ marginLeft: 12 }} />
           <TextInput
-            style={[styles.searchInput, { color: theme.text }]}
+            style={[styles.searchInput, { color: theme.text || "#0F172A" }]}
             placeholder="Endereço / rua..."
-            placeholderTextColor={theme.textMuted}
+            placeholderTextColor={theme.textMuted || "#64748B"}
             value={filtros.endereco}
             onChangeText={v => setFiltros({ ...filtros, endereco: v })}
             returnKeyType="search"
@@ -262,7 +312,7 @@ export default function CadastroDomiciliarListaScreen() {
               <TextInput 
                 style={[styles.input, { color: theme.text }]} 
                 placeholder="Ex: 01, 02..." 
-                placeholderTextColor={theme.textMuted}
+                placeholderTextColor={theme.textMuted || "#64748B"}
                 value={filtros.microArea} 
                 onChangeText={v => setFiltros({ ...filtros, microArea: v })} 
                 keyboardType="numeric" 
@@ -299,9 +349,9 @@ const getStyles = (theme: any) => StyleSheet.create({
   backBtn: { padding: 4 },
   headerTitulo: { fontSize: 18, fontWeight: '700', color: theme.primary },
   
-  searchContainer: { padding: 12, backgroundColor: theme.card, borderBottomWidth: 1, borderBottomColor: theme.border, gap: 8 },
-  searchInputWrap: { flex: 1, flexDirection: 'row', alignItems: 'center', backgroundColor: theme.background, borderRadius: 8, borderWidth: 1, borderColor: theme.border, overflow: 'hidden', paddingLeft:12 },
-  searchInput: { flex: 1, height: 44, paddingHorizontal: 12, fontSize: 14 },
+  searchContainer: { paddingHorizontal: 12, paddingTop: 10, paddingBottom: 12, backgroundColor: theme.card, borderBottomWidth: 1, borderBottomColor: theme.border, gap: 10 },
+  searchInputWrap: { width: '100%', minHeight: 48, flexDirection: 'row', alignItems: 'center', backgroundColor: '#FFFFFF', borderRadius: 12, borderWidth: 1, borderColor: '#CBD5E1', overflow: 'hidden' },
+  searchInput: { flex: 1, minHeight: 48, paddingHorizontal: 10, paddingVertical: 10, fontSize: 14, color: '#0F172A' },
   filterBtn: { width: 44, height: 44, backgroundColor: theme.infoBg, borderRadius: 8, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: theme.info },
 
   center: { flex: 1, justifyContent: 'center', alignItems: 'center', gap: 12 },

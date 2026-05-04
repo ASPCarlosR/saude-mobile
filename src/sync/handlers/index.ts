@@ -7,7 +7,7 @@ import { resolveTenantUrl } from '../../config';
 /**
  * Função de auxílio para chamadas fetch com limite de tempo (timeout)
  */
-async function fetchWithTimeout(url: string, options: any = {}, timeoutMs = 15000): Promise<Response> {
+async function fetchWithTimeout(url: string, options: any = {}, timeoutMs = 60000): Promise<Response> {
   console.log(`[SYNC] Conectando ao host: ${url}`);
   return Promise.race([
     fetch(url, options),
@@ -15,6 +15,23 @@ async function fetchWithTimeout(url: string, options: any = {}, timeoutMs = 1500
       setTimeout(() => reject(new Error(`Timeout: O servidor demorou a responder. Host: ${url}`)), timeoutMs)
     )
   ]);
+}
+
+async function contarPendentesColecao(
+  collectionName: string,
+  modo: 'not_synced' | 'pending' = 'not_synced'
+): Promise<number> {
+  try {
+    const collection = database.collections.get(collectionName);
+    const condition = modo === 'pending'
+      ? Q.where('sync_status', 'pending')
+      : Q.where('sync_status', Q.notEq('synced'));
+
+    return await collection.query(condition).fetchCount();
+  } catch (error) {
+    console.log(`[SYNC][MODO] Não foi possível contar pendências da coleção ${collectionName}:`, error);
+    return 0;
+  }
 }
 
 export async function sincronizar() {
@@ -33,10 +50,6 @@ export async function sincronizar() {
     throw new Error('Token não configurado. Faça login novamente.');
   }
 
-  if (!tenantUrl || !String(tenantUrl).trim()) {
-    throw new Error('Município não configurado. Por favor, selecione seu município nas configurações.');
-  }
-
   if (!municipioSlug || !String(municipioSlug).trim()) {
     throw new Error('Slug do município não configurado. Por favor, selecione seu município nas configurações.');
   }
@@ -52,6 +65,7 @@ export async function sincronizar() {
     profissionalId: profissional?.id,
     unidadeId: profissional?.unidadeId,
     equipeId: profissional?.equipeId,
+    microArea: profissional?.microArea,
     cboCodigo: profissional?.cboCodigo,
     tokenExiste: !!token,
     tokenPreview: typeof token === 'string' ? `${token.slice(0, 20)}...` : '(token não string)'
@@ -69,13 +83,75 @@ export async function sincronizar() {
     municipioSlug: headers['x-municipio-slug']
   });
 
+  const [
+    pessoasPendentesCount,
+    domiciliosPendentesCount,
+    visitasPendentesCount,
+    viagensPendentesCount,
+    atendimentosDomiciliaresPendentesCount,
+    atividadesColetivasPendentesCount,
+    avaliacoesElegibilidadePendentesCount,
+    marcadoresConsumoPendentesCount,
+    atendimentosIndividuaisPendentesCount,
+    vacinasPendentesCount,
+  ] = await Promise.all([
+    contarPendentesColecao('pessoas'),
+    contarPendentesColecao('domicilios'),
+    contarPendentesColecao('visitas_domiciliares'),
+    contarPendentesColecao('viagens', 'pending'),
+    contarPendentesColecao('atendimentos_domiciliares'),
+    contarPendentesColecao('atividades_coletivas'),
+    contarPendentesColecao('avaliacoes_elegibilidade'),
+    contarPendentesColecao('marcadores_consumo'),
+    contarPendentesColecao('atendimentos_individuais'),
+    contarPendentesColecao('vacinas'),
+  ]);
+
+  const temPendenciaLocal =
+    pessoasPendentesCount > 0 ||
+    domiciliosPendentesCount > 0 ||
+    visitasPendentesCount > 0 ||
+    viagensPendentesCount > 0 ||
+    atendimentosDomiciliaresPendentesCount > 0 ||
+    atividadesColetivasPendentesCount > 0 ||
+    avaliacoesElegibilidadePendentesCount > 0 ||
+    marcadoresConsumoPendentesCount > 0 ||
+    atendimentosIndividuaisPendentesCount > 0 ||
+    vacinasPendentesCount > 0;
+
+  console.log('[SYNC][MODO] Verificação de pendências locais:', {
+    pessoasPendentesCount,
+    domiciliosPendentesCount,
+    visitasPendentesCount,
+    viagensPendentesCount,
+    atendimentosDomiciliaresPendentesCount,
+    atividadesColetivasPendentesCount,
+    avaliacoesElegibilidadePendentesCount,
+    marcadoresConsumoPendentesCount,
+    atendimentosIndividuaisPendentesCount,
+    vacinasPendentesCount,
+    temPendenciaLocal,
+  });
+
+  const paramsDownSync = new URLSearchParams({
+    profissionalId: String(profissional.id || ''),
+    equipeId: String(profissional.equipeId || ''),
+    unidadeId: String(profissional.unidadeId || ''),
+    microArea: String(profissional.microArea || ''),
+  });
+
+  console.log('[SYNC][DOWN] Parâmetros enviados para pessoas/domicílios:', paramsDownSync.toString());
+
   // =========================================================================
   // 1. DOWN-SYNC: Puxar dados do Servidor (S35/S36...) -> App Local
   // =========================================================================
 
+  if (!temPendenciaLocal) {
+    console.log('[SYNC][MODO] Nenhuma pendência local. Executando somente recebimento de dados.');
+
   // 1.1 Sincronização de Pessoas
   try {
-    const urlPessoas = `${tenantBaseUrl}/api/sync/pessoas`;
+    const urlPessoas = `${tenantBaseUrl}/api/sync/pessoas?${paramsDownSync.toString()}`;
     console.log('[SYNC][PESSOAS] Iniciando DOWN-SYNC:', urlPessoas);
 
     const responsePessoas = await fetchWithTimeout(urlPessoas, { headers });
@@ -229,7 +305,7 @@ export async function sincronizar() {
 
       if (operacoes.length > 0) {
         await database.write(async () => {
-          await database.batch(...operacoes);
+          await database.batch(operacoes);
         });
       }
     }
@@ -239,7 +315,7 @@ export async function sincronizar() {
 
   // 1.2 DOWN-SYNC Domicílios
   try {
-    const urlDom = `${tenantBaseUrl}/api/sync/domicilios`;
+    const urlDom = `${tenantBaseUrl}/api/sync/domicilios?${paramsDownSync.toString()}`;
     console.log('[SYNC][DOMICILIOS] Iniciando DOWN-SYNC:', urlDom);
 
     const responseDom = await fetchWithTimeout(urlDom, { headers });
@@ -347,7 +423,7 @@ export async function sincronizar() {
 
       if (operacoesDom.length > 0) {
         await database.write(async () => {
-          await database.batch(...operacoesDom);
+          await database.batch(operacoesDom);
         });
       }
     }
@@ -410,12 +486,20 @@ export async function sincronizar() {
 
       if (operacoesViagem.length > 0) {
         await database.write(async () => {
-          await database.batch(...operacoesViagem);
+          await database.batch(operacoesViagem);
         });
       }
     }
   } catch (err) {
     console.error('Erro no DOWN-SYNC Viagens:', err);
+  }
+
+  } else {
+    console.log('[SYNC][MODO] Existem pendências locais. Pulando DOWN-SYNC e executando somente envio.');
+  }
+
+  if (!temPendenciaLocal) {
+    return { mensagem: 'Dados recebidos com sucesso! Seu aparelho está atualizado.' };
   }
 
   // =========================================================================

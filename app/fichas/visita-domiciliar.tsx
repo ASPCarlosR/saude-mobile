@@ -147,6 +147,124 @@ type CampoCondicaoVisita =
   | 'outrasDrogas'
   | 'pessoaIdosa';
 
+const CAMPOS_CONDICAO_VISITA: CampoCondicaoVisita[] = [
+  'gestante',
+  'puerpera',
+  'recemNasc',
+  'crianca',
+  'desnutricao',
+  'reabilitacao',
+  'hipertensao',
+  'diabetes',
+  'asma',
+  'dpoc',
+  'cancer',
+  'cronicas',
+  'hanseniase',
+  'tuberculose',
+  'sintResp',
+  'tabagista',
+  'acamados',
+  'vulnerSocial',
+  'acomBolsaFam',
+  'saudeMental',
+  'usuarAlcool',
+  'outrasDrogas',
+  'pessoaIdosa',
+];
+
+function condicoesParaForm(condicoes?: Partial<Record<CampoCondicaoVisita, boolean>>): Record<CampoCondicaoVisita, boolean> {
+  return CAMPOS_CONDICAO_VISITA.reduce((acc, campo) => {
+    acc[campo] = !!condicoes?.[campo];
+    return acc;
+  }, {} as Record<CampoCondicaoVisita, boolean>);
+}
+
+function montarDadosParaCalculoCondicoes(pessoa: any = {}, fallback: any = {}) {
+  const dataNascimento =
+    pessoa?.dtNasc ||
+    pessoa?.dtnasc ||
+    pessoa?.dataNascimento ||
+    pessoa?.sdpessoadtnasc ||
+    fallback?.dtNasc ||
+    fallback?.dtnasc ||
+    fallback?.dataNascimento ||
+    '';
+
+  const sexo = pessoa?.sexo || pessoa?.sdpessoasexo || fallback?.sexo || '';
+
+  const sn = (...valores: any[]) => {
+    for (const valor of valores) {
+      if (valor === true) return 'S';
+      if (valor === false) return 'N';
+      if (valor !== undefined && valor !== null && String(valor).trim() !== '') {
+        return String(valor).trim().toUpperCase();
+      }
+    }
+    return 'N';
+  };
+
+  return {
+    dtnasc: dataNascimento,
+    dtNasc: dataNascimento,
+    sdpessoadtnasc: dataNascimento,
+    sexo,
+    sdpessoasexo: sexo,
+
+    gestante: sn(pessoa?.gestante, pessoa?.sdpessoagestante, fallback?.gestante),
+    sdpessoagestante: sn(pessoa?.gestante, pessoa?.sdpessoagestante, fallback?.gestante),
+
+    hipertensaoarterial: sn(pessoa?.hipertensao, pessoa?.hipertensaoarterial, pessoa?.sdpessoahipertensaoarterial, fallback?.hipertensao),
+    sdpessoahipertensaoarterial: sn(pessoa?.hipertensao, pessoa?.hipertensaoarterial, pessoa?.sdpessoahipertensaoarterial, fallback?.hipertensao),
+
+    diabetes: sn(pessoa?.diabetes, pessoa?.sdpessoadiabetes, fallback?.diabetes),
+    sdpessoadiabetes: sn(pessoa?.diabetes, pessoa?.sdpessoadiabetes, fallback?.diabetes),
+
+    fumante: sn(pessoa?.fumante, pessoa?.sdpessoafumante, fallback?.fumante),
+    sdpessoafumante: sn(pessoa?.fumante, pessoa?.sdpessoafumante, fallback?.fumante),
+
+    acamado: sn(pessoa?.acamado, pessoa?.acamados, pessoa?.sdpessoaacamado, fallback?.acamado),
+    sdpessoaacamado: sn(pessoa?.acamado, pessoa?.acamados, pessoa?.sdpessoaacamado, fallback?.acamado),
+
+    domiciliado: sn(pessoa?.domiciliado, pessoa?.sdpessoadomiciliado, fallback?.domiciliado),
+    sdpessoadomiciliado: sn(pessoa?.domiciliado, pessoa?.sdpessoadomiciliado, fallback?.domiciliado),
+
+    dependentealcool: sn(pessoa?.dependenteAlcool, pessoa?.dependentealcool, pessoa?.sdpessoadependentealcool, fallback?.dependenteAlcool),
+    sdpessoadependentealcool: sn(pessoa?.dependenteAlcool, pessoa?.dependentealcool, pessoa?.sdpessoadependentealcool, fallback?.dependenteAlcool),
+
+    dependentedroga: sn(pessoa?.dependenteDroga, pessoa?.dependentedroga, pessoa?.sdpessoadependentedroga, fallback?.dependenteDroga),
+    sdpessoadependentedroga: sn(pessoa?.dependenteDroga, pessoa?.dependentedroga, pessoa?.sdpessoadependentedroga, fallback?.dependenteDroga),
+
+    hanseniase: sn(pessoa?.hanseniase, pessoa?.sdpessoahanseniase, fallback?.hanseniase),
+    sdpessoahanseniase: sn(pessoa?.hanseniase, pessoa?.sdpessoahanseniase, fallback?.hanseniase),
+
+    tuberculose: sn(pessoa?.tuberculose, pessoa?.sdpessoatuberculose, fallback?.tuberculose),
+    sdpessoatuberculose: sn(pessoa?.tuberculose, pessoa?.sdpessoatuberculose, fallback?.tuberculose),
+
+    cancer: sn(pessoa?.cancer, pessoa?.sdpessoacancer, fallback?.cancer),
+    sdpessoacancer: sn(pessoa?.cancer, pessoa?.sdpessoacancer, fallback?.cancer),
+
+    tratpsiquiatra: sn(pessoa?.tratPsiquiatra, pessoa?.tratpsiquiatra, pessoa?.sdpessoadeficienciamental, fallback?.tratPsiquiatra),
+    sdpessoadeficienciamental: sn(pessoa?.tratPsiquiatra, pessoa?.tratpsiquiatra, pessoa?.sdpessoadeficienciamental, fallback?.tratPsiquiatra),
+
+    deficiencia: sn(pessoa?.deficiencia, pessoa?.sdpessoadeficiencia, fallback?.deficiencia),
+    sdpessoadeficiencia: sn(pessoa?.deficiencia, pessoa?.sdpessoadeficiencia, fallback?.deficiencia),
+
+    usuariobolsafamilia: sn(pessoa?.recebeBeneficio, pessoa?.usuariobolsafamilia, pessoa?.sdpessoarecebebeneficio, fallback?.recebeBeneficio),
+    sdpessoarecebebeneficio: sn(pessoa?.recebeBeneficio, pessoa?.usuariobolsafamilia, pessoa?.sdpessoarecebebeneficio, fallback?.recebeBeneficio),
+
+    avcderrame: sn(pessoa?.avcDerrame, pessoa?.avcderrame, pessoa?.sdpessoaavcderrame, fallback?.avcDerrame),
+    infarto: sn(pessoa?.infarto, pessoa?.sdpessoinfarto, fallback?.infarto),
+    doencacardiaca: sn(pessoa?.doencaCardiaca, pessoa?.doencacardiaca, pessoa?.sdpessoadoencacardiaca, fallback?.doencaCardiaca),
+    doencarios: sn(pessoa?.doencaRins, pessoa?.doencarios, pessoa?.sdpessoadoencarenal, fallback?.doencaRins),
+    internacao: sn(pessoa?.internacao, pessoa?.sdpessoadinternacao, fallback?.internacao),
+
+    doencaresp: sn(pessoa?.doencaResp, pessoa?.doencaresp, pessoa?.sdpessoadoencarespiratoria, fallback?.doencaResp),
+    doencarespasma: sn(pessoa?.asma, pessoa?.doencarespasma, pessoa?.sdpessoadoencarespasma, fallback?.asma),
+    doencarespdpoc: sn(pessoa?.dpoc, pessoa?.doencarespdpoc, pessoa?.sdpessoadoencarespdpoc, fallback?.dpoc),
+  };
+}
+
 const FORM_INICIAL: FormVisita = {
   data: new Date().toLocaleDateString('pt-BR'),
   hora: new Date().toLocaleTimeString('pt-BR').slice(0, 5),
@@ -234,22 +352,45 @@ const TIPO_GLICEMIA_OPTS = [
   { v: '3', l: 'Não informado' },
 ];
 
-function Secao({ titulo, children, cor = '#0A4F6E', abertaInicial = true }: any) {
+function Secao({
+  titulo,
+  children,
+  cor = '#0A4F6E',
+  abertaInicial = true,
+  manterMontado = false,
+  onAntesFechar,
+}: any) {
   const [aberta, setAberta] = useState(abertaInicial);
   const theme = Colors[useColorScheme() ?? 'light'];
   const styles = getStyles(theme);
+
+  const alternarSecao = () => {
+    if (aberta && typeof onAntesFechar === 'function') {
+      onAntesFechar();
+    }
+
+    setAberta((valorAtual) => !valorAtual);
+  };
 
   return (
     <View style={styles.secao}>
       <TouchableOpacity
         style={[styles.secaoHeader, { borderLeftColor: cor, backgroundColor: theme.cardSecondary }]}
-        onPress={() => setAberta(!aberta)}
+        onPress={alternarSecao}
         activeOpacity={0.8}
       >
         <Text style={styles.secaoTitulo}>{titulo}</Text>
         <Ionicons name={aberta ? 'chevron-up' : 'chevron-down'} size={18} color={theme.textMuted} />
       </TouchableOpacity>
-      {aberta && <View style={styles.secaoBody}>{children}</View>}
+
+      {(aberta || manterMontado) && (
+        <View
+          pointerEvents={aberta ? 'auto' : 'none'}
+          style={[styles.secaoBody, !aberta && manterMontado && styles.secaoBodyOculta]}
+        >
+          {children}
+        </View>
+      )}
     </View>
   );
 }
@@ -324,6 +465,8 @@ export default function VisitaDomiciliarScreen() {
   const isTablet = width >= 768 && width > height;
   const signatureRef = useRef<SignatureViewRef>(null);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const scrollResetTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const finalizandoAssinaturaRef = useRef(false);
 
   const { moradoresParam, microAreaParam } = useLocalSearchParams<{
     moradoresParam?: string;
@@ -350,6 +493,78 @@ export default function VisitaDomiciliarScreen() {
 
   const upd = (campo: Partial<FormVisita>) => setForm((p) => ({ ...p, ...campo }));
 
+  const habilitarScrollAssinatura = () => {
+    if (scrollResetTimeoutRef.current) {
+      clearTimeout(scrollResetTimeoutRef.current);
+      scrollResetTimeoutRef.current = null;
+    }
+
+    setScrollHabilitado(true);
+  };
+
+  const desabilitarScrollAssinatura = () => {
+    if (scrollResetTimeoutRef.current) {
+      clearTimeout(scrollResetTimeoutRef.current);
+    }
+
+    setScrollHabilitado(false);
+
+    // Segurança: se o componente de assinatura perder algum evento de fim do toque,
+    // a tela não fica travada sem rolagem.
+    scrollResetTimeoutRef.current = setTimeout(() => {
+      setScrollHabilitado(true);
+      scrollResetTimeoutRef.current = null;
+    }, 1200);
+  };
+
+  const salvarAssinaturaNoFormulario = (assinatura?: string) => {
+    const assinaturaFinal = assinatura || '';
+
+    setForm((prev) => ({
+      ...prev,
+      assinaturaBase64: assinaturaFinal || prev.assinaturaBase64 || '',
+    }));
+
+    if (assinaturaFinal) {
+      setAssinaturaDesenhada(true);
+    }
+  };
+
+  const handleAssinaturaOK = (img: string) => {
+    habilitarScrollAssinatura();
+    console.log('[VISITA][ASSINATURA] Assinatura capturada:', { possuiImagem: !!img, tamanho: img?.length || 0 });
+    salvarAssinaturaNoFormulario(img);
+
+    if (finalizandoAssinaturaRef.current) {
+      finalizandoAssinaturaRef.current = false;
+      salvarVisitas(img || form.assinaturaBase64 || '');
+    }
+  };
+
+  const handleAssinaturaVazia = () => {
+    habilitarScrollAssinatura();
+
+    if (finalizandoAssinaturaRef.current) {
+      finalizandoAssinaturaRef.current = false;
+      salvarVisitas(form.assinaturaBase64 || '');
+    }
+  };
+
+  const limparAssinatura = () => {
+    habilitarScrollAssinatura();
+    setAssinaturaDesenhada(false);
+    setForm((prev) => ({ ...prev, assinaturaBase64: '' }));
+  };
+
+  const limparAssinaturaPeloUsuario = () => {
+    habilitarScrollAssinatura();
+    finalizandoAssinaturaRef.current = false;
+    setAssinaturaDesenhada(false);
+    setForm((prev) => ({ ...prev, assinaturaBase64: '' }));
+    signatureRef.current?.clearSignature?.();
+    console.log('[VISITA][ASSINATURA] Assinatura limpa pelo usuário');
+  };
+
   useEffect(() => {
     const microAreaVindaDoDomicilio =
       typeof microAreaParam === 'string' ? microAreaParam : '';
@@ -362,6 +577,14 @@ export default function VisitaDomiciliarScreen() {
         String(profissional?.microArea || ''),
     }));
   }, [microAreaParam, profissional?.microArea]);
+
+  useEffect(() => {
+    return () => {
+      if (scrollResetTimeoutRef.current) {
+        clearTimeout(scrollResetTimeoutRef.current);
+      }
+    };
+  }, []);
 
   useEffect(() => {
     async function carregarMoradoresDoDomicilio() {
@@ -478,6 +701,40 @@ export default function VisitaDomiciliarScreen() {
   }, [moradoresParam]);
 
   useEffect(() => {
+    const deveMostrarCondicoes = moradores.length === 1;
+
+    if (deveMostrarCondicoes) {
+      const condicoesDoMorador = condicoesParaForm(moradores[0]?.condicoes);
+
+      setForm((prev) => ({
+        ...prev,
+        ...condicoesDoMorador,
+      }));
+
+      console.log('[VISITA DEBUG] Condições aplicadas no formulário:', {
+        morador: moradores[0]?.nome,
+        condicoes: condicoesDoMorador,
+      });
+
+      return;
+    }
+
+    setForm((prev) => {
+      const condicoesZeradas = condicoesParaForm({});
+      const temCondicaoMarcada = CAMPOS_CONDICAO_VISITA.some((campo) => !!prev[campo]);
+
+      if (!temCondicaoMarcada) {
+        return prev;
+      }
+
+      return {
+        ...prev,
+        ...condicoesZeradas,
+      };
+    });
+  }, [moradores]);
+
+  useEffect(() => {
     if (debounceRef.current) {
       clearTimeout(debounceRef.current);
     }
@@ -545,27 +802,55 @@ export default function VisitaDomiciliarScreen() {
     };
   }, [buscaPaciente]);
 
-  const selecionarPaciente = (p: any) => {
+  const selecionarPaciente = async (p: any) => {
     if (moradores.some((m) => m.id === String(p.id))) {
       Alert.alert('Aviso', 'Morador já selecionado.');
       return;
     }
 
+    let pessoaLocal: any = null;
+
+    try {
+      const encontrados = await pessoaCollection
+        .query(Q.where('int_id', Number(p.id)))
+        .fetch();
+
+      if (encontrados.length > 0) {
+        pessoaLocal = encontrados[0];
+      }
+    } catch (e) {
+      console.log('[VISITA DEBUG] erro ao buscar pessoa local selecionada:', e);
+    }
+
+    const dadosParaCalculo = montarDadosParaCalculoCondicoes(pessoaLocal || p, p);
+
     const novoMorador: EstadoMorador = {
       id: String(p.id),
-      guid: p.guid || '',
-      nome: p.nome,
-      cns: p.cns || p.cpf,
-      idade: calcularIdadeTexto(p.dtnasc || p.dtNasc || p.dataNascimento),
-      condicoes: calcularCondicoesMorador(p),
+      guid: pessoaLocal?.guid || p.guid || '',
+      nome: pessoaLocal?.nome || p.nome,
+      cns: pessoaLocal?.cns || p.cns || p.cpf,
+      idade: calcularIdadeTexto(
+        pessoaLocal?.dtNasc ||
+        p.dtnasc ||
+        p.dtNasc ||
+        p.dataNascimento
+      ),
+      condicoes: calcularCondicoesMorador(dadosParaCalculo as any),
     };
+
+    console.log('[VISITA DEBUG] Morador selecionado com condições:', {
+      id: novoMorador.id,
+      nome: novoMorador.nome,
+      condicoes: novoMorador.condicoes,
+      encontrouPessoaLocal: !!pessoaLocal,
+    });
 
     setMoradores((prev) => [...prev, novoMorador]);
     setBuscaPaciente('');
     setPacientesEncontrados([]);
 
-    if (p.microArea) {
-      upd({ microArea: String(p.microArea) });
+    if (p.microArea || pessoaLocal?.microArea) {
+      upd({ microArea: String(p.microArea || pessoaLocal?.microArea) });
     }
   };
 
@@ -576,34 +861,21 @@ export default function VisitaDomiciliarScreen() {
       : new Date().toISOString().split('T')[0];
   };
 
-  const getCondicoesEfetivas = (m?: EstadoMorador): Record<CampoCondicaoVisita, boolean> => {
-    const cond = (m?.condicoes || {}) as Partial<Record<CampoCondicaoVisita, boolean>>;
+  const getCondicoesDoForm = (): Record<CampoCondicaoVisita, boolean> => {
+    return CAMPOS_CONDICAO_VISITA.reduce((acc, campo) => {
+      acc[campo] = !!form[campo];
+      return acc;
+    }, {} as Record<CampoCondicaoVisita, boolean>);
+  };
 
-    return {
-      gestante: form.gestante || !!cond.gestante,
-      puerpera: form.puerpera || !!cond.puerpera,
-      recemNasc: form.recemNasc || !!cond.recemNasc,
-      crianca: form.crianca || !!cond.crianca,
-      desnutricao: form.desnutricao || !!cond.desnutricao,
-      reabilitacao: form.reabilitacao || !!cond.reabilitacao,
-      hipertensao: form.hipertensao || !!cond.hipertensao,
-      diabetes: form.diabetes || !!cond.diabetes,
-      asma: form.asma || !!cond.asma,
-      dpoc: form.dpoc || !!cond.dpoc,
-      cancer: form.cancer || !!cond.cancer,
-      cronicas: form.cronicas || !!cond.cronicas,
-      hanseniase: form.hanseniase || !!cond.hanseniase,
-      tuberculose: form.tuberculose || !!cond.tuberculose,
-      sintResp: form.sintResp || !!cond.sintResp,
-      tabagista: form.tabagista || !!cond.tabagista,
-      acamados: form.acamados || !!cond.acamados,
-      vulnerSocial: form.vulnerSocial || !!cond.vulnerSocial,
-      acomBolsaFam: form.acomBolsaFam || !!cond.acomBolsaFam,
-      saudeMental: form.saudeMental || !!cond.saudeMental,
-      usuarAlcool: form.usuarAlcool || !!cond.usuarAlcool,
-      outrasDrogas: form.outrasDrogas || !!cond.outrasDrogas,
-      pessoaIdosa: form.pessoaIdosa || !!cond.pessoaIdosa,
-    };
+  const getCondicoesEfetivas = (m?: EstadoMorador): Record<CampoCondicaoVisita, boolean> => {
+    const condicoesDoMorador = condicoesParaForm(m?.condicoes);
+
+    if (m && moradores.length > 1) {
+      return condicoesDoMorador;
+    }
+
+    return getCondicoesDoForm();
   };
 
   const alturaDigitada = parseFloat(form.altura.replace(',', '.')) || 0;
@@ -800,7 +1072,7 @@ export default function VisitaDomiciliarScreen() {
           operacoes.push(visitaCollection.prepareCreate((r: any) => preencherFicha(r)));
         }
 
-        await database.batch(...operacoes);
+        await database.batch(operacoes);
       });
 
       Alert.alert('Sucesso', 'Visitas salvas!', [
@@ -815,6 +1087,17 @@ export default function VisitaDomiciliarScreen() {
 
   const confirmarSalvar = async () => {
     setModalDesfecho(false);
+
+    finalizandoAssinaturaRef.current = true;
+
+    // Se o usuário já assinou e a assinatura foi preservada no form, usa ela.
+    // Caso contrário, tenta ler o canvas atual.
+    if (form.assinaturaBase64) {
+      finalizandoAssinaturaRef.current = false;
+      salvarVisitas(form.assinaturaBase64);
+      return;
+    }
+
     signatureRef.current?.readSignature();
   };
 
@@ -975,8 +1258,9 @@ export default function VisitaDomiciliarScreen() {
                 </View>
               </Secao>
 
-              <Secao titulo="Acompanhamento / Saúde" cor="#D97706" abertaInicial={false}>
-                <View style={styles.checkGrid}>
+              {moradores.length === 1 && (
+                <Secao titulo="Acompanhamento / Saúde" cor="#D97706" abertaInicial>
+                  <View style={styles.checkGrid}>
                   <CheckItem label="Gestante" width="48%" value={form.gestante} onChange={(v: any) => upd({ gestante: v })} />
                   <CheckItem label="Puérpera" width="48%" value={form.puerpera} onChange={(v: any) => upd({ puerpera: v })} />
                   <CheckItem label="Recém-nascido" width="48%" value={form.recemNasc} onChange={(v: any) => upd({ recemNasc: v })} />
@@ -999,9 +1283,10 @@ export default function VisitaDomiciliarScreen() {
                   <CheckItem label="Saúde mental" width="48%" value={form.saudeMental} onChange={(v: any) => upd({ saudeMental: v })} />
                   <CheckItem label="Usuário álcool" width="48%" value={form.usuarAlcool} onChange={(v: any) => upd({ usuarAlcool: v })} />
                   <CheckItem label="Outras drogas" width="48%" value={form.outrasDrogas} onChange={(v: any) => upd({ outrasDrogas: v })} />
-                  <CheckItem label="Pessoa idosa" width="48%" value={form.pessoaIdosa} onChange={(v: any) => upd({ pessoaIdosa: v })} />
-                </View>
-              </Secao>
+                    <CheckItem label="Pessoa idosa" width="48%" value={form.pessoaIdosa} onChange={(v: any) => upd({ pessoaIdosa: v })} />
+                  </View>
+                </Secao>
+              )}
             </View>
 
             <View style={isTablet ? styles.column : undefined}>
@@ -1080,7 +1365,16 @@ export default function VisitaDomiciliarScreen() {
                 </Secao>
               )}
 
-              <Secao titulo="Observações e Assinatura" cor="#059669">
+              <Secao
+                titulo="Observações e Assinatura"
+                cor="#059669"
+                manterMontado
+                onAntesFechar={() => {
+                  if (assinaturaDesenhada || form.assinaturaBase64) {
+                    signatureRef.current?.readSignature();
+                  }
+                }}
+              >
                 <Input
                   label="Notas"
                   value={form.obs}
@@ -1090,20 +1384,40 @@ export default function VisitaDomiciliarScreen() {
                 />
 
                 <Text style={styles.campoLabel}>Assinatura</Text>
-                <View
-                  style={styles.signatureBox}
-                  onTouchStart={() => setScrollHabilitado(false)}
-                  onTouchEnd={() => setScrollHabilitado(true)}
-                >
+                <View style={styles.signatureBox}>
                   <SignatureScreen
                     ref={signatureRef}
-                    onBegin={() => setAssinaturaDesenhada(true)}
-                    onOK={(img) => salvarVisitas(img)}
-                    onEmpty={() => salvarVisitas('')}
-                    onClear={() => setAssinaturaDesenhada(false)}
+                    dataURL={form.assinaturaBase64 || undefined}
+                    onBegin={() => {
+                      setAssinaturaDesenhada(true);
+                      desabilitarScrollAssinatura();
+                    }}
+                    onEnd={() => {
+                      habilitarScrollAssinatura();
+                      setTimeout(() => signatureRef.current?.readSignature(), 80);
+                    }}
+                    onOK={handleAssinaturaOK}
+                    onEmpty={handleAssinaturaVazia}
+                    onClear={limparAssinatura}
                     webStyle={signatureStyle}
                   />
                 </View>
+
+                {(!!form.assinaturaBase64 || assinaturaDesenhada) && (
+                  <View style={styles.assinaturaAcoes}>
+                    {!!form.assinaturaBase64 && (
+                      <Text style={styles.assinaturaStatus}>Assinatura capturada e preservada.</Text>
+                    )}
+
+                    <TouchableOpacity
+                      style={styles.botaoLimparAssinatura}
+                      onPress={limparAssinaturaPeloUsuario}
+                      activeOpacity={0.85}
+                    >
+                      <Text style={styles.textoBotaoLimparAssinatura}>Limpar assinatura</Text>
+                    </TouchableOpacity>
+                  </View>
+                )}
               </Secao>
             </View>
           </View>
@@ -1181,6 +1495,32 @@ const getStyles = (theme: any) =>
     badgeTablet: { backgroundColor: theme.infoBg, paddingHorizontal: 10, paddingVertical: 6, borderRadius: 999 },
     badgeText: { fontSize: 11, fontWeight: '800', color: theme.info },
 
+    assinaturaStatus: {
+      flex: 1,
+      fontSize: 12,
+      fontWeight: '700',
+      color: '#059669',
+    },
+    assinaturaAcoes: {
+      marginTop: 10,
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      gap: 10,
+    },
+    botaoLimparAssinatura: {
+      paddingVertical: 9,
+      paddingHorizontal: 13,
+      borderRadius: 12,
+      borderWidth: 1,
+      borderColor: '#DC2626',
+      backgroundColor: '#FFF5F5',
+    },
+    textoBotaoLimparAssinatura: {
+      color: '#DC2626',
+      fontWeight: '800',
+      fontSize: 12,
+    },
     scroll: { flex: 1 },
     tabletWrapper: {
       flexDirection: 'row',
@@ -1205,6 +1545,13 @@ const getStyles = (theme: any) =>
     },
     secaoTitulo: { fontSize: 14, fontWeight: '800', color: theme.text },
     secaoBody: { padding: 18, gap: 14 },
+    secaoBodyOculta: {
+      position: 'absolute',
+      left: -10000,
+      top: 0,
+      width: '100%',
+      opacity: 0,
+    },
 
     row: {
       flexDirection: 'row',

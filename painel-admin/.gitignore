@@ -5,7 +5,7 @@ node_modules/
 .next/
 out/
 
-# Variáveis de ambiente — NUNCA suba ao git
+
 .env.local
 .env.production
 .env.staging

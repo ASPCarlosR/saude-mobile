@@ -1,6 +1,5 @@
+import { API_BASE_URL } from '../config';
 import { TenantConfigPublica, TenantResumo } from '../types/tentant';
-
-const API_BASE = 'http://172.20.10.2:3000';
 
 async function tratarResposta<T>(response: Response): Promise<T> {
   if (!response.ok) {
@@ -12,7 +11,7 @@ async function tratarResposta<T>(response: Response): Promise<T> {
 }
 
 export async function listarMunicipiosAtivos(): Promise<TenantResumo[]> {
-  const response = await fetch(`${API_BASE}/municipios`, {
+  const response = await fetch(`${API_BASE_URL}/municipios`, {
     method: 'GET',
     headers: {
       Accept: 'application/json',
@@ -23,7 +22,7 @@ export async function listarMunicipiosAtivos(): Promise<TenantResumo[]> {
 }
 
 export async function buscarConfigMunicipio(slug: string): Promise<TenantConfigPublica> {
-  const response = await fetch(`${API_BASE}/municipios/${encodeURIComponent(slug)}/config`, {
+  const response = await fetch(`${API_BASE_URL}/municipios/${encodeURIComponent(slug)}/config`, {
     method: 'GET',
     headers: {
       Accept: 'application/json',

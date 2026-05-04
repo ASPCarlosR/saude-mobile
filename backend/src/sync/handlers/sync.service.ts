@@ -1,4 +1,4 @@
-import { Get, Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { DataSource } from 'typeorm';
 import { SyncPayloadDto } from './sync.dto';
 import { TenantService } from '../../tenant/tenant.service';
@@ -10,6 +10,13 @@ import { AtendimentoDomiciliarHandler } from './atendimento-domiciliar.handler';
 import { AtividadeColetivaHandler } from './atividade-coletiva.handler';
 import { ElegibilidadeHandler } from './elegibilidade.handler';
 import { ConsumoAlimentarHandler } from './consumo-alimentar.handler';
+
+type FiltrosDownSync = {
+  profissionalId?: number;
+  equipeId?: number;
+  unidadeId?: number;
+  microArea?: string;
+};
 
 @Injectable()
 export class SyncService {
@@ -160,110 +167,171 @@ export class SyncService {
     return { status: 'S', sessaoId, registros: resultados };
   }
 
-  async buscarPessoas(usuarioId: number, municipioSlug: string) {
-    const db = await this.getDb(municipioSlug);
-
-    const dados = await db.query(
-      `
-      SELECT p.*,
-             p.sdpessoaid as "intId",
-             COALESCE(p.sdpessoaprenome, p.sdpessoanom) as "nome",
-             COALESCE(dom.endereco, '') as "endereco",
-             COALESCE(dom.numero, '') as "numero",
-             COALESCE(dom.bairro, '') as "bairro",
-             COALESCE(dom.micro_area, p.sdpessoaprofmicroarea, '') as "microArea",
-             u.sdusuarioconvenio as "convenio"
-        FROM sdpessoa p
-   LEFT JOIN sdusuario u
-          ON u.sdusuarioid = p.sdpessoaid
-   LEFT JOIN LATERAL (
-          SELECT COALESCE(l.sdlogradourocepdnenomeconcatenado, d.sddomicilioenderecocompl, '') AS endereco,
-                 COALESCE(d.sddomicilioendereconum, '') AS numero,
-                 COALESCE(b.sdbairrodnenome, '') AS bairro,
-                 COALESCE(d.sddomicilioprofmicroarea, '') AS micro_area
-            FROM sddomiciliopacientes dp
-            JOIN sddomicilio d
-              ON d.sddomicilioid = dp.sddomicilioid
-       LEFT JOIN sdlogradourocepdne l
-              ON l.sdlogradourocepdneid = d.sddomiciliodnelogradourocepid
-       LEFT JOIN sdbairrodne b
-              ON b.sdbairrodneid = l.sdlogradourocepdnebairroid
-           WHERE dp.sddomiciliousuarioid = p.sdpessoaid
-             AND (dp.sddomiciliopacientesativo = 'S' OR dp.sddomiciliopacientesativo IS NULL)
-             AND COALESCE(dp.sddomiciliopacientemudou, 'N') <> 'S'
-           ORDER BY dp.sddomiciliopacientesdatainclusao DESC NULLS LAST
-           LIMIT 1
-        ) dom ON TRUE
-       WHERE p.sdpessoainativo = 0
-         AND p.sdpessoaprofissionalid = $1
-       ORDER BY COALESCE(p.sdpessoaprenome, p.sdpessoanom), p.sdpessoaid
-      `,
-      [usuarioId]
-    );
-
-    return { status: 'S', dados };
+  async buscarPessoas(
+  usuarioId: number,
+  municipioSlug: string,
+  filtros?: {
+    profissionalId?: number;
+    equipeId?: number;
+    unidadeId?: number;
+    microArea?: string;
   }
+) {
+  const db = await this.getDb(municipioSlug);
 
-  async buscarDomicilios(usuarioId: number, municipioSlug: string) {
-    const db = await this.getDb(municipioSlug);
+  const profissionalId = Number(filtros?.profissionalId || 0);
+  const equipeId = Number(filtros?.equipeId || 0);
+  const unidadeId = Number(filtros?.unidadeId || 0);
+  const microArea = String(filtros?.microArea || '').trim();
 
-    const dados = await db.query(
-      `
-      SELECT d.*,
-             json_build_object(
-               'moradores', COALESCE((
-                 SELECT json_agg(json_build_object(
-                   'id', p.sdpessoaid,
-                   'nome', COALESCE(p.sdpessoaprenome, p.sdpessoanom),
-                   'cns', p.sdpessoacns,
-                   'cpf', p.sdpessoacpf,
-                   'dtnasc', p.sdpessoadtnasc,
-                   'ehResponsavel', (dp.sddomiciliopacientesrf = 'S')
-                 ) ORDER BY COALESCE(p.sdpessoaprenome, p.sdpessoanom))
-                   FROM sddomiciliopacientes dp
-                   JOIN sdpessoa p
-                     ON p.sdpessoaid = dp.sddomiciliousuarioid
-                  WHERE dp.sddomicilioid = d.sddomicilioid
-                    AND dp.sddomiciliopacientesativo = 'S'
-                    AND p.sdpessoaprofissionalid = $1
-               ), '[]'::json),
-               'microArea', d.sddomicilioprofmicroarea,
-               'sitMoradia', d.sddomiciliositmoradiaid,
-               'localizacao', d.sddomiciliolocalizacao,
-               'tipoDomicilio', d.sddomiciliotipodomid,
-               'comodos', d.sddomiciliocomodos,
-               'energiaEletrica', d.sddomicilioenergiaeletrica,
-               'endereco', COALESCE(l.sdlogradourocepdnenomeconcatenado, d.sddomicilioenderecocompl, ''),
-               'numero', COALESCE(d.sddomicilioendereconum, ''),
-               'bairro', COALESCE(b.sdbairrodnenome, ''),
-               'municipioNome', COALESCE(m.sdmunicipiodesc, ''),
-               'unidadeNome', COALESCE(u.sdunidadenom, ''),
-               'cnes', COALESCE(u.sdunidadecnes, ''),
-               'profissionalNome', COALESCE(prof.sdprofissionalnom, ''),
-               'equipeNome', COALESCE(eq.sdequipedescricao, ''),
-               'equipeIne', COALESCE(eq.sdequipemedicacodigocnes, '')
-             )::text as "dados"
+  this.logger.log(
+    '[SYNC][PESSOAS] Filtros recebidos: ' +
+      JSON.stringify({
+        usuarioId,
+        municipioSlug,
+        profissionalId,
+        equipeId,
+        unidadeId,
+        microArea,
+      })
+  );
+
+  const dados = await db.query(
+    `
+    SELECT p.*,
+           p.sdpessoaid as "intId",
+           COALESCE(p.sdpessoaprenome, p.sdpessoanom) as "nome",
+           '' as "endereco",
+           '' as "numero",
+           '' as "bairro",
+           COALESCE(p.sdpessoaprofmicroarea, '') as "microArea",
+           u.sdusuarioconvenio as "convenio"
+      FROM sdpessoa p
+ LEFT JOIN sdusuario u
+        ON u.sdusuarioid = p.sdpessoaid
+     WHERE p.sdpessoainativo = 0
+       AND ($1::int = 0 OR p.sdpessoaprofissionalid = $1::int)
+       AND ($2::int = 0 OR p.sdpessoaequipeid = $2::int)
+       AND ($3::int = 0 OR p.sdpessoaunidadeid = $3::int)
+       AND ($4::text = '' OR COALESCE(p.sdpessoaprofmicroarea, '') = $4::text)
+     ORDER BY COALESCE(p.sdpessoaprenome, p.sdpessoanom), p.sdpessoaid
+     LIMIT 5000
+    `,
+    [profissionalId, equipeId, unidadeId, microArea]
+  );
+
+  this.logger.log(`[SYNC][PESSOAS] Total retornado: ${dados.length}`);
+
+  return { status: 'S', dados };
+}
+  async buscarDomicilios(
+  usuarioId: number,
+  municipioSlug: string,
+  filtros?: {
+    profissionalId?: number;
+    equipeId?: number;
+    unidadeId?: number;
+    microArea?: string;
+  }
+) {
+  const db = await this.getDb(municipioSlug);
+
+  const profissionalId = Number(filtros?.profissionalId || 0);
+  const equipeId = Number(filtros?.equipeId || 0);
+  const unidadeId = Number(filtros?.unidadeId || 0);
+  const microArea = String(filtros?.microArea || '').trim();
+
+  this.logger.log(
+    '[SYNC][DOMICILIOS] Filtros recebidos: ' +
+      JSON.stringify({
+        usuarioId,
+        municipioSlug,
+        profissionalId,
+        equipeId,
+        unidadeId,
+        microArea,
+      })
+  );
+
+  const dados = await db.query(
+    `
+    WITH domicilios_filtrados AS (
+      SELECT DISTINCT d.*
         FROM sddomicilio d
-        LEFT JOIN sdlogradourocepdne l
-               ON l.sdlogradourocepdneid = d.sddomiciliodnelogradourocepid
-        LEFT JOIN sdbairrodne b
-               ON b.sdbairrodneid = l.sdlogradourocepdnebairroid
-        LEFT JOIN sdunidade u
-               ON u.sdunidadeid = d.sddomiciliounidadeid
-        LEFT JOIN sdmunicipio m
-               ON m.sdmunicipioid = d.sddomiciliomunicipioid
-        LEFT JOIN sdprofissional prof
-               ON prof.sdprofissionalid = d.sddomicilioprofissionalid
-        LEFT JOIN sdequipemedica eq
-               ON eq.sdequipemedicaid = d.sddomicilioequipeid
-       WHERE d.sddomicilioprofissionalid = $1
+        LEFT JOIN sddomiciliopacientes dp
+               ON dp.sddomicilioid = d.sddomicilioid
+              AND (dp.sddomiciliopacientesativo = 'S' OR dp.sddomiciliopacientesativo IS NULL)
+              AND COALESCE(dp.sddomiciliopacientemudou, 'N') <> 'S'
+        LEFT JOIN sdpessoa p
+               ON p.sdpessoaid = dp.sddomiciliousuarioid
+              AND p.sdpessoainativo = 0
+       WHERE ($1::int = 0 OR p.sdpessoaprofissionalid = $1::int)
+         AND ($2::int = 0 OR d.sddomicilioequipeid = $2::int OR p.sdpessoaequipeid = $2::int)
+         AND ($3::int = 0 OR d.sddomiciliounidadeid = $3::int OR p.sdpessoaunidadeid = $3::int)
+         AND ($4::text = '' OR COALESCE(d.sddomicilioprofmicroarea, p.sdpessoaprofmicroarea, '') = $4::text)
        ORDER BY d.sddomicilioid DESC
-      `,
-      [usuarioId]
-    );
+       LIMIT 5000
+    )
+    SELECT d.*,
+           json_build_object(
+             'moradores', COALESCE((
+               SELECT json_agg(json_build_object(
+                 'id', p.sdpessoaid,
+                 'nome', COALESCE(p.sdpessoaprenome, p.sdpessoanom),
+                 'cns', p.sdpessoacns,
+                 'cpf', p.sdpessoacpf,
+                 'dtnasc', p.sdpessoadtnasc,
+                 'ehResponsavel', (dp.sddomiciliopacientesrf = 'S')
+               ) ORDER BY COALESCE(p.sdpessoaprenome, p.sdpessoanom))
+                 FROM sddomiciliopacientes dp
+                 JOIN sdpessoa p
+                   ON p.sdpessoaid = dp.sddomiciliousuarioid
+                WHERE dp.sddomicilioid = d.sddomicilioid
+                  AND (dp.sddomiciliopacientesativo = 'S' OR dp.sddomiciliopacientesativo IS NULL)
+                  AND COALESCE(dp.sddomiciliopacientemudou, 'N') <> 'S'
+             ), '[]'::json),
+             'microArea', d.sddomicilioprofmicroarea,
+             'sitMoradia', d.sddomiciliositmoradiaid,
+             'localizacao', d.sddomiciliolocalizacao,
+             'tipoDomicilio', d.sddomiciliotipodomid,
+             'comodos', d.sddomiciliocomodos,
+             'energiaEletrica', d.sddomicilioenergiaeletrica,
+             'endereco', COALESCE(l.sdlogradourocepdnenomeconcatenado, d.sddomicilioenderecocompl, ''),
+             'numero', COALESCE(d.sddomicilioendereconum, ''),
+             'bairro', COALESCE(b.sdbairrodnenome, ''),
+             'municipioNome', COALESCE(m.sdmunicipiodesc, ''),
+             'unidadeNome', COALESCE(u.sdunidadenom, ''),
+             'cnes', COALESCE(u.sdunidadecnes, ''),
+             'profissionalNome', COALESCE(prof.sdprofissionalnom, ''),
+             'equipeNome', COALESCE(eq.sdequipedescricao, ''),
+             'equipeIne', COALESCE(eq.sdequipemedicacodigocnes, '')
+           )::text as "dados",
+           COALESCE(l.sdlogradourocepdnenomeconcatenado, d.sddomicilioenderecocompl, '') AS logradouro_nome,
+           COALESCE(b.sdbairrodnenome, '') AS bairro_nome,
+           COALESCE(u.sdunidadenom, '') AS unidade_nome,
+           COALESCE(u.sdunidadecnes, '') AS cnes
+      FROM domicilios_filtrados d
+      LEFT JOIN sdlogradourocepdne l
+             ON l.sdlogradourocepdneid = d.sddomiciliodnelogradourocepid
+      LEFT JOIN sdbairrodne b
+             ON b.sdbairrodneid = l.sdlogradourocepdnebairroid
+      LEFT JOIN sdunidade u
+             ON u.sdunidadeid = d.sddomiciliounidadeid
+      LEFT JOIN sdmunicipio m
+             ON m.sdmunicipioid = d.sddomiciliomunicipioid
+      LEFT JOIN sdprofissional prof
+             ON prof.sdprofissionalid = d.sddomicilioprofissionalid
+      LEFT JOIN sdequipemedica eq
+             ON eq.sdequipemedicaid = d.sddomicilioequipeid
+     ORDER BY d.sddomicilioid DESC
+    `,
+    [profissionalId, equipeId, unidadeId, microArea]
+  );
 
-    return { status: 'S', dados };
-  }
+  this.logger.log(`[SYNC][DOMICILIOS] Total retornado: ${dados.length}`);
+
+  return { status: 'S', dados };
+}
 
   async buscarViagens(usuarioId: number, filtros: any, municipioSlug: string) {
     const db = await this.getDb(municipioSlug);

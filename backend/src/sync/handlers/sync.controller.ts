@@ -28,20 +28,40 @@ ping() {
   @Get('pessoas')
   async buscarPessoas(
     @Req() req: any,
-    @Headers('x-municipio-slug') slug: string
+    @Headers('x-municipio-slug') slug: string,
+    @Query('profissionalId') profissionalId?: string,
+    @Query('equipeId') equipeId?: string,
+    @Query('unidadeId') unidadeId?: string,
+    @Query('microArea') microArea?: string,
   ) {
     const usuarioId = req.user?.sub;
-    return this.syncService.buscarPessoas(usuarioId, slug);
+
+    return this.syncService.buscarPessoas(usuarioId, slug, {
+      profissionalId: profissionalId ? Number(profissionalId) : 0,
+      equipeId: equipeId ? Number(equipeId) : 0,
+      unidadeId: unidadeId ? Number(unidadeId) : 0,
+      microArea: microArea || '',
+    });
   }
 
   @UseGuards(JwtAuthGuard)
   @Get('domicilios')
   async buscarDomicilios(
     @Req() req: any,
-    @Headers('x-municipio-slug') slug: string
+    @Headers('x-municipio-slug') slug: string,
+    @Query('profissionalId') profissionalId?: string,
+    @Query('equipeId') equipeId?: string,
+    @Query('unidadeId') unidadeId?: string,
+    @Query('microArea') microArea?: string,
   ) {
     const usuarioId = req.user?.sub;
-    return this.syncService.buscarDomicilios(usuarioId, slug);
+
+    return this.syncService.buscarDomicilios(usuarioId, slug, {
+      profissionalId: profissionalId ? Number(profissionalId) : 0,
+      equipeId: equipeId ? Number(equipeId) : 0,
+      unidadeId: unidadeId ? Number(unidadeId) : 0,
+      microArea: microArea || '',
+    });
   }
 
   @UseGuards(JwtAuthGuard)

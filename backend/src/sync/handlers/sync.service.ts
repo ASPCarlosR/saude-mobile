@@ -947,10 +947,10 @@ export class SyncService {
   }
 
   async listarIndicadoresApsPendentes(profissionalId: number, municipioSlug: string) {
-  const db = await this.getDb(municipioSlug);
+    const db = await this.getDb(municipioSlug);
 
-  const quadRows = await db.query(
-    `
+    const quadRows = await db.query(
+      `
     SELECT
       sdindicdimtempoid,
       sdindicdimtempodatainicialquad::date AS dt_ini,
@@ -961,18 +961,18 @@ export class SyncService {
     ORDER BY sdindicdimtempoid DESC
     LIMIT 1
     `
-  );
+    );
 
-  if (!quadRows?.length) {
-    return { status: 'E', message: 'Quadrimestre atual não encontrado.' };
-  }
+    if (!quadRows?.length) {
+      return { status: 'E', message: 'Quadrimestre atual não encontrado.' };
+    }
 
-  const quad = quadRows[0];
-  const dtFim: string = quad.dt_fim;
-  const dtIni: string = quad.dt_ini;
+    const quad = quadRows[0];
+    const dtFim: string = quad.dt_fim;
+    const dtIni: string = quad.dt_ini;
 
-  const profRows = await db.query(
-    `
+    const profRows = await db.query(
+      `
     SELECT
       p.sdpessoaid,
       COALESCE(p.sdpessoaprenome, p.sdpessoanom) AS nome,
@@ -981,20 +981,20 @@ export class SyncService {
     WHERE p.sdpessoaid = $1
     LIMIT 1
     `,
-    [profissionalId]
-  );
+      [profissionalId]
+    );
 
-  if (!profRows?.length) {
-    return { status: 'E', message: 'Profissional não encontrado.' };
-  }
+    if (!profRows?.length) {
+      return { status: 'E', message: 'Profissional não encontrado.' };
+    }
 
-  const prof = profRows[0];
-  const equipeId: number = Number(prof.equipeid);
+    const prof = profRows[0];
+    const equipeId: number = Number(prof.equipeid);
 
-  const params2 = [equipeId, dtFim];
-  const params3 = [equipeId, dtFim, dtIni];
+    const params2 = [equipeId, dtFim];
+    const params3 = [equipeId, dtFim, dtIni];
 
-  const idosoQuery = `
+    const idosoQuery = `
     WITH pessoas_base AS (
       SELECT DISTINCT
         p.sdpessoaid,
@@ -1067,23 +1067,25 @@ export class SyncService {
       JOIN tipo_equipe te ON 1 = 1
       WHERE te.tipo = '76'
     ),
-    visitas_all AS (
-      SELECT
-        i.sdpessoaid,
-        COUNT(*)::int AS total_visitas_12m
-      FROM idosos i
-      JOIN sdvisitadomiciliar v
-        ON v.sdvisitadomiciliarusuarioid = i.sdpessoaid
-      JOIN sdequipemedica ev
-        ON ev.sdequipemedicaid = v.sdvisitadomiciliarequipeid
-       AND ev.sdequipemedicatipoid IN ('70','76')
-      JOIN sdunidade u
-        ON u.sdunidadeid = v.sdvisitadomiciliarunidadeid
-       AND u.sdparamunidintegraesus = 'S'
-      WHERE v.sdvisitadomiciliarcboprofid IN ('322255','515105')
-        AND v.sdvisitadomiciliardata::date BETWEEN ($2::date - INTERVAL '1 year') AND $2::date
-      GROUP BY i.sdpessoaid
-    )
+   visitas_all AS (
+  SELECT
+    i.sdpessoaid,
+    COUNT(*)::int AS total_visitas_12m
+  FROM idosos i
+  JOIN sdvisitadomiciliar v
+    ON v.sdvisitadomiciliarusuarioid = i.sdpessoaid
+  JOIN sdequipemedica ev
+    ON ev.sdequipemedicaid = v.sdvisitadomiciliarequipeid
+   AND ev.sdequipemedicaid = $1
+   AND ev.sdequipemedicatipoid IN ('70','76')
+  JOIN sdunidade u
+    ON u.sdunidadeid = v.sdvisitadomiciliarunidadeid
+   AND u.sdparamunidintegraesus = 'S'
+  WHERE v.sdvisitadomiciliarcboprofid IN ('322255','515105')
+    AND v.sdvisitadomiciliardesfecho = 1
+    AND v.sdvisitadomiciliardata::date BETWEEN ($2::date - INTERVAL '1 year') AND $2::date
+  GROUP BY i.sdpessoaid
+)
     SELECT
       i.sdpessoaid AS pessoa_id,
       i.nome_exib AS nome,
@@ -1115,7 +1117,7 @@ export class SyncService {
     WHERE i.sdpessoaid NOT IN (SELECT pessoaid FROM atendidos)
   `;
 
-  const diabetesQuery = `
+    const diabetesQuery = `
     WITH pessoas_candidatas AS (
       SELECT DISTINCT
         p.sdpessoaid,
@@ -1288,7 +1290,7 @@ export class SyncService {
     WHERE pdq.sdpessoaid NOT IN (SELECT sdpessoaid FROM atendidos)
   `;
 
-  const hipertensaoQuery = `
+    const hipertensaoQuery = `
     WITH pessoas_candidatas AS (
       SELECT DISTINCT
         p.sdpessoaid,
@@ -1438,7 +1440,7 @@ export class SyncService {
     WHERE e.sdpessoaid NOT IN (SELECT sdpessoaid FROM atendidos)
   `;
 
-  const gestante3Query = `
+    const gestante3Query = `
     WITH pessoas_candidatas AS (
       SELECT DISTINCT
         p.sdpessoaid,
@@ -1638,7 +1640,7 @@ export class SyncService {
     WHERE a.pessoa_id IS NULL
   `;
 
-  const gestantePuerperioQuery = `
+    const gestantePuerperioQuery = `
     WITH pessoas_candidatas AS (
       SELECT DISTINCT
         p.sdpessoaid,
@@ -1838,7 +1840,7 @@ export class SyncService {
     WHERE a.pessoa_id IS NULL
   `;
 
-  const desenvInfantilQuery = `
+    const desenvInfantilQuery = `
     WITH pessoas_candidatas AS (
       SELECT DISTINCT
         p.sdpessoaid,
@@ -2003,181 +2005,181 @@ export class SyncService {
     WHERE ev.paciente_id IS NULL
   `;
 
-  const [
-    rowsIdoso,
-    rowsDiabetes,
-    rowsHiper,
-    rowsGest3,
-    rowsGestPuerp,
-    rowsDesenv,
-  ] = await Promise.all([
-    db.query(idosoQuery, params3),
-    db.query(diabetesQuery, params2),
-    db.query(hipertensaoQuery, params2),
-    db.query(gestante3Query, params3),
-    db.query(gestantePuerperioQuery, params3),
-    db.query(desenvInfantilQuery, params3),
-  ]);
+    const [
+      rowsIdoso,
+      rowsDiabetes,
+      rowsHiper,
+      rowsGest3,
+      rowsGestPuerp,
+      rowsDesenv,
+    ] = await Promise.all([
+      db.query(idosoQuery, params3),
+      db.query(diabetesQuery, params2),
+      db.query(hipertensaoQuery, params2),
+      db.query(gestante3Query, params3),
+      db.query(gestantePuerperioQuery, params3),
+      db.query(desenvInfantilQuery, params3),
+    ]);
 
-  const mapIndicadorId = (nome: string, detalhe: string) => {
-    const n = String(nome ?? '').trim().toUpperCase();
-    const d = String(detalhe ?? '').trim().toUpperCase();
+    const mapIndicadorId = (nome: string, detalhe: string) => {
+      const n = String(nome ?? '').trim().toUpperCase();
+      const d = String(detalhe ?? '').trim().toUpperCase();
 
-    if (n === 'DESENVOLVIMENTO INFANTIL') return 'desenvolvimento-infantil';
-    if (n === 'GESTANTE E PUÉRPERA' && d.includes('3 VISITAS')) return 'gestante-3-visitas';
-    if (n === 'GESTANTE E PUÉRPERA' && d.includes('1 VISITA')) return 'gestante-puerperio-1-visita';
-    if (n === 'PESSOA COM DIABETES') return 'diabetes';
-    if (n === 'PESSOA COM HIPERTENSÃO' || n === 'PESSOA COM HIPERTENSAO') return 'hipertensao';
-    if (n === 'PESSOA IDOSA') return 'idoso';
-    return null;
-  };
-
-  const montarFalta = (
-    indicadorId: string,
-    realizado: number,
-    necessario: number,
-    flag2?: string | null,
-    flag3?: string | null,
-    observacao?: string | null,
-    realizadoTotal?: number | null
-  ) => {
-    if (flag2 === 'GAP_INVALIDO') {
-      return `Possui ${realizadoTotal ?? 0} visitas registradas, mas sem intervalo mínimo de 30 dias entre elas`;
-    }
-
-    if (indicadorId === 'desenvolvimento-infantil') {
-      const falta30 = flag2 !== 'S';
-      const falta6m = flag3 !== 'S';
-
-      if (falta30 && falta6m) return 'Falta visita até 30 dias e visita até 6 meses';
-      if (falta30) return 'Falta visita até 30 dias';
-      if (falta6m) return 'Falta visita entre 30 dias e 6 meses';
-      return observacao || 'Pendência no desenvolvimento infantil';
-    }
-
-    const faltam = Math.max(necessario - (realizado || 0), 0);
-
-    switch (indicadorId) {
-      case 'gestante-3-visitas':
-        return faltam === 1
-          ? 'Falta 1 visita domiciliar na gestação'
-          : `Faltam ${faltam} visitas domiciliares na gestação`;
-
-      case 'gestante-puerperio-1-visita':
-        return faltam === 1
-          ? 'Falta 1 visita domiciliar no puerpério'
-          : `Faltam ${faltam} visitas domiciliares no puerpério`;
-
-      case 'diabetes':
-        return faltam === 1
-          ? 'Falta 1 visita domiciliar de diabetes'
-          : `Faltam ${faltam} visitas domiciliares de diabetes`;
-
-      case 'hipertensao':
-        return faltam === 1
-          ? 'Falta 1 visita domiciliar de hipertensão'
-          : `Faltam ${faltam} visitas domiciliares de hipertensão`;
-
-      case 'idoso':
-        return faltam === 1
-          ? 'Falta 1 visita domiciliar para pessoa idosa'
-          : `Faltam ${faltam} visitas domiciliares para pessoa idosa`;
-
-      default:
-        return observacao || 'Pendência no indicador';
-    }
-  };
-
-  const todosRows = [
-    ...rowsIdoso,
-    ...rowsDiabetes,
-    ...rowsHiper,
-    ...rowsGest3,
-    ...rowsGestPuerp,
-    ...rowsDesenv,
-  ];
-
-  const gruposMap = new Map<
-    string,
-    { id: string; titulo: string; descricao: string; pacientes: any[] }
-  >();
-
-  for (const row of todosRows) {
-    const indicadorId = mapIndicadorId(row.indicador_nome, row.indicador_detalhe);
-    if (!indicadorId) continue;
-
-    const realizado = Number(row.realizado ?? 0);
-    const realizadoTotal = Number(row.realizado_total ?? row.realizado ?? 0);
-    const necessario = Number(row.necessario ?? 0);
-
-    const paciente = {
-      pessoaId: Number(row.pessoa_id),
-      nome: row.nome,
-      cpf: row.cpf,
-      dataNascimento: row.data_nascimento,
-      idade: null,
-      indicadorId,
-      indicadorNome: row.indicador_nome,
-      indicadorDetalhe: row.indicador_detalhe,
-      status: 'N',
-      realizado,
-      realizadoTotal,
-      necessario,
-      falta: montarFalta(
-        indicadorId,
-        realizado,
-        necessario,
-        row.flag2,
-        row.flag3,
-        row.observacao,
-        realizadoTotal
-      ),
-      observacao: row.observacao ?? null,
-      flag2: row.flag2 ?? null,
-      flag3: row.flag3 ?? null,
+      if (n === 'DESENVOLVIMENTO INFANTIL') return 'desenvolvimento-infantil';
+      if (n === 'GESTANTE E PUÉRPERA' && d.includes('3 VISITAS')) return 'gestante-3-visitas';
+      if (n === 'GESTANTE E PUÉRPERA' && d.includes('1 VISITA')) return 'gestante-puerperio-1-visita';
+      if (n === 'PESSOA COM DIABETES') return 'diabetes';
+      if (n === 'PESSOA COM HIPERTENSÃO' || n === 'PESSOA COM HIPERTENSAO') return 'hipertensao';
+      if (n === 'PESSOA IDOSA') return 'idoso';
+      return null;
     };
 
-    if (!gruposMap.has(indicadorId)) {
-      gruposMap.set(indicadorId, {
-        id: indicadorId,
-        titulo: row.indicador_nome,
-        descricao: row.indicador_detalhe,
-        pacientes: [],
-      });
+    const montarFalta = (
+      indicadorId: string,
+      realizado: number,
+      necessario: number,
+      flag2?: string | null,
+      flag3?: string | null,
+      observacao?: string | null,
+      realizadoTotal?: number | null
+    ) => {
+      if (flag2 === 'GAP_INVALIDO') {
+        return `Possui ${realizadoTotal ?? 0} visitas registradas, mas sem intervalo mínimo de 30 dias entre elas`;
+      }
+
+      if (indicadorId === 'desenvolvimento-infantil') {
+        const falta30 = flag2 !== 'S';
+        const falta6m = flag3 !== 'S';
+
+        if (falta30 && falta6m) return 'Falta visita até 30 dias e visita até 6 meses';
+        if (falta30) return 'Falta visita até 30 dias';
+        if (falta6m) return 'Falta visita entre 30 dias e 6 meses';
+        return observacao || 'Pendência no desenvolvimento infantil';
+      }
+
+      const faltam = Math.max(necessario - (realizado || 0), 0);
+
+      switch (indicadorId) {
+        case 'gestante-3-visitas':
+          return faltam === 1
+            ? 'Falta 1 visita domiciliar na gestação'
+            : `Faltam ${faltam} visitas domiciliares na gestação`;
+
+        case 'gestante-puerperio-1-visita':
+          return faltam === 1
+            ? 'Falta 1 visita domiciliar no puerpério'
+            : `Faltam ${faltam} visitas domiciliares no puerpério`;
+
+        case 'diabetes':
+          return faltam === 1
+            ? 'Falta 1 visita domiciliar de diabetes'
+            : `Faltam ${faltam} visitas domiciliares de diabetes`;
+
+        case 'hipertensao':
+          return faltam === 1
+            ? 'Falta 1 visita domiciliar de hipertensão'
+            : `Faltam ${faltam} visitas domiciliares de hipertensão`;
+
+        case 'idoso':
+          return faltam === 1
+            ? 'Falta 1 visita domiciliar para pessoa idosa'
+            : `Faltam ${faltam} visitas domiciliares para pessoa idosa`;
+
+        default:
+          return observacao || 'Pendência no indicador';
+      }
+    };
+
+    const todosRows = [
+      ...rowsIdoso,
+      ...rowsDiabetes,
+      ...rowsHiper,
+      ...rowsGest3,
+      ...rowsGestPuerp,
+      ...rowsDesenv,
+    ];
+
+    const gruposMap = new Map<
+      string,
+      { id: string; titulo: string; descricao: string; pacientes: any[] }
+    >();
+
+    for (const row of todosRows) {
+      const indicadorId = mapIndicadorId(row.indicador_nome, row.indicador_detalhe);
+      if (!indicadorId) continue;
+
+      const realizado = Number(row.realizado ?? 0);
+      const realizadoTotal = Number(row.realizado_total ?? row.realizado ?? 0);
+      const necessario = Number(row.necessario ?? 0);
+
+      const paciente = {
+        pessoaId: Number(row.pessoa_id),
+        nome: row.nome,
+        cpf: row.cpf,
+        dataNascimento: row.data_nascimento,
+        idade: null,
+        indicadorId,
+        indicadorNome: row.indicador_nome,
+        indicadorDetalhe: row.indicador_detalhe,
+        status: 'N',
+        realizado,
+        realizadoTotal,
+        necessario,
+        falta: montarFalta(
+          indicadorId,
+          realizado,
+          necessario,
+          row.flag2,
+          row.flag3,
+          row.observacao,
+          realizadoTotal
+        ),
+        observacao: row.observacao ?? null,
+        flag2: row.flag2 ?? null,
+        flag3: row.flag3 ?? null,
+      };
+
+      if (!gruposMap.has(indicadorId)) {
+        gruposMap.set(indicadorId, {
+          id: indicadorId,
+          titulo: row.indicador_nome,
+          descricao: row.indicador_detalhe,
+          pacientes: [],
+        });
+      }
+
+      gruposMap.get(indicadorId)!.pacientes.push(paciente);
     }
 
-    gruposMap.get(indicadorId)!.pacientes.push(paciente);
+    const dados = Array.from(gruposMap.values());
+
+    const formatarData = (d: any) => {
+      if (!d) return '';
+
+      const valor = String(d).slice(0, 10); // pega yyyy-mm-dd com segurança
+      const [ano, mes, dia] = valor.split('-');
+
+      if (!ano || !mes || !dia) return '';
+
+      return `${dia}/${mes}/${ano}`;
+    };
+
+    return {
+      status: 'S',
+      quadrimestre: {
+        id: Number(quad.sdindicdimtempoid),
+        dataInicial: quad.dt_ini,
+        dataFinal: quad.dt_fim,
+        descricao: `${formatarData(quad.dt_ini)} a ${formatarData(quad.dt_fim)}`,
+      },
+      profissional: {
+        id: String(prof.sdpessoaid),
+        nome: prof.nome,
+      },
+      totalPendentes: dados.reduce((acc, g) => acc + g.pacientes.length, 0),
+      dados,
+    };
   }
-
-  const dados = Array.from(gruposMap.values());
-
- const formatarData = (d: any) => {
-  if (!d) return '';
-
-  const valor = String(d).slice(0, 10); // pega yyyy-mm-dd com segurança
-  const [ano, mes, dia] = valor.split('-');
-
-  if (!ano || !mes || !dia) return '';
-
-  return `${dia}/${mes}/${ano}`;
-};
-
-  return {
-    status: 'S',
-    quadrimestre: {
-      id: Number(quad.sdindicdimtempoid),
-      dataInicial: quad.dt_ini,
-      dataFinal: quad.dt_fim,
-      descricao: `${formatarData(quad.dt_ini)} a ${formatarData(quad.dt_fim)}`,
-    },
-    profissional: {
-      id: String(prof.sdpessoaid),
-      nome: prof.nome,
-    },
-    totalPendentes: dados.reduce((acc, g) => acc + g.pacientes.length, 0),
-    dados,
-  };
-}
 
   async buscarEnderecosDne(termo: string, municipioSlug: string) {
     const db = await this.getDb(municipioSlug);
@@ -2312,5 +2314,5 @@ export class SyncService {
 
     return { status: 'S', dados };
   }
-  
+
 }

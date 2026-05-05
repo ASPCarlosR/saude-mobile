@@ -9,10 +9,9 @@ import {
   Alert,
   useWindowDimensions,
   useColorScheme,
-  Appearance,
   ActivityIndicator,
 } from 'react-native';
-import { router } from 'expo-router';
+import { router, useLocalSearchParams } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import NetInfo from '@react-native-community/netinfo';
@@ -102,7 +101,7 @@ function CardFicha({
         </View>
       )}
 
-      <Ionicons name="chevron-forward" size={18} color="#9CA3AF" />
+      <Ionicons name="chevron-forward" size={18} color={theme.textMuted} />
     </TouchableOpacity>
   );
 }
@@ -188,9 +187,11 @@ function TutorialPanel({
 }
 
 export default function HomeScreen() {
+  const params = useLocalSearchParams<{ reiniciarTutorial?: string }>();
+
   const { width } = useWindowDimensions();
   const isTablet = width >= 768;
-  const { profissional, setLogout, setBloqueado } = useAuthStore();
+  const { profissional } = useAuthStore();
   const { sincronizando, setSincronizando, setUltimoSync, ultimoSync } = useSyncStore();
 
   const [pendentesGeral, setPendentesGeral] = useState(0);
@@ -233,6 +234,7 @@ export default function HomeScreen() {
   );
 
   const tutorialAtual = tutorialSteps[tutorialIndex];
+
   const tutorialPanelNoTopo =
     tutorialAtivo &&
     (tutorialAtual?.id === 'indicadores' || tutorialAtual?.id === 'agendamento');
@@ -264,13 +266,20 @@ export default function HomeScreen() {
     verificarTutorial();
   }, []);
 
+  useEffect(() => {
+    if (params.reiniciarTutorial === '1') {
+      iniciarTutorialManualmente();
+      router.setParams({ reiniciarTutorial: undefined });
+    }
+  }, [params.reiniciarTutorial]);
+
   async function finalizarTutorial() {
     await AsyncStorage.setItem(TUTORIAL_KEY, 'sim');
     setTutorialAtivo(false);
     setTutorialIndex(0);
   }
 
-  async function reiniciarTutorial() {
+  async function iniciarTutorialManualmente() {
     await AsyncStorage.removeItem(TUTORIAL_KEY);
     setTutorialIndex(0);
     setTutorialAtivo(true);
@@ -281,6 +290,7 @@ export default function HomeScreen() {
       finalizarTutorial();
       return;
     }
+
     setTutorialIndex((prev) => prev + 1);
   }
 
@@ -359,35 +369,6 @@ export default function HomeScreen() {
       setSincronizando(false);
     }
   }
-
-  const handleToggleTheme = () => {
-    Appearance.setColorScheme(modo === 'light' ? 'dark' : 'light');
-  };
-
-  function handleLogout() {
-    if (sincronizando) {
-      Alert.alert('Sincronização em andamento', 'Aguarde a sincronização finalizar para sair da conta.');
-      return;
-    }
-
-    Alert.alert(
-      'Sair da conta',
-      'Deseja realmente sair e voltar para a tela de login?',
-      [
-        { text: 'Cancelar', style: 'cancel' },
-        {
-          text: 'Sair',
-          style: 'destructive',
-          onPress: () => {
-            setBloqueado(false);
-            setLogout();
-            router.replace('/(auth)/login');
-          },
-        },
-      ],
-    );
-  }
-
 
   const fichasEsf = [
     {
@@ -502,7 +483,8 @@ export default function HomeScreen() {
       <View style={styles.header}>
         <View style={tutorialAtivo ? styles.blurredBlock : undefined}>
           <Text style={styles.headerSaudo}>
-            OLA, {profissional?.nome?.split(' ')[0] ?? 'Profissional'} {profissional?.nome?.split(' ')[1] ?? ''}
+            OLA, {profissional?.nome?.split(' ')[0] ?? 'Profissional'}{' '}
+            {profissional?.nome?.split(' ')[1] ?? ''}
           </Text>
           <Text style={styles.headerInfo}>
             {profissional?.cnes} · Equipe {profissional?.ine}
@@ -511,32 +493,6 @@ export default function HomeScreen() {
 
         <View style={styles.headerActions}>
           <TouchableOpacity
-            style={[styles.actionBtn, tutorialAtivo && styles.dimmedButton]}
-            onPress={reiniciarTutorial}
-          >
-            <Ionicons name="help-circle-outline" size={22} color={theme.primary} />
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={[styles.actionBtn, tutorialAtivo && styles.dimmedButton]}
-            onPress={handleToggleTheme}
-          >
-            <Ionicons
-              name={modo === 'dark' ? 'sunny-outline' : 'moon-outline'}
-              size={22}
-              color={theme.primary}
-            />
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={[styles.actionBtn, tutorialAtivo && styles.dimmedButton]}
-            onPress={handleLogout}
-            disabled={sincronizando || tutorialAtivo}
-          >
-            <Ionicons name="log-out-outline" size={22} color={theme.danger} />
-          </TouchableOpacity>
-
-          <TouchableOpacity
             style={[
               styles.actionBtn,
               isTutorialTargetApagado('sync') && styles.dimmedButton,
@@ -544,6 +500,7 @@ export default function HomeScreen() {
             ]}
             onPress={handleSync}
             disabled={sincronizando || !podeSincronizar(tenantConfig) || tutorialAtivo}
+            activeOpacity={0.85}
           >
             {sincronizando ? (
               <ActivityIndicator size="small" color={theme.primary} />
@@ -560,6 +517,7 @@ export default function HomeScreen() {
                 }
               />
             )}
+
             {pendentesGeral > 0 && !sincronizando && podeSincronizar(tenantConfig) && (
               <View style={styles.syncBadge}>
                 <Text style={styles.syncBadgeTxt}>{pendentesGeral}</Text>
@@ -576,7 +534,12 @@ export default function HomeScreen() {
           tutorialAtivo && !isTutorialTargetAtivo('sync') && styles.blurredBlock,
         ]}
       >
-        <View style={[styles.statusDot, { backgroundColor: online ? theme.success : theme.danger }]} />
+        <View
+          style={[
+            styles.statusDot,
+            { backgroundColor: online ? theme.success : theme.danger },
+          ]}
+        />
         <Text style={[styles.statusTxt, { color: online ? theme.success : theme.danger }]}>
           {online
             ? pendentesGeral > 0
@@ -598,6 +561,7 @@ export default function HomeScreen() {
         refreshControl={
           <RefreshControl
             refreshing={refreshing}
+            tintColor={theme.primary}
             onRefresh={() => {
               setRefreshing(true);
               carregarPendentes();
@@ -611,7 +575,9 @@ export default function HomeScreen() {
           {ultimoSync && ` · Sync ${formatarDataBR(ultimoSync)}`}
         </Text>
 
-        <Text style={[styles.secaoTitulo, tutorialAtivo && styles.blurredBlock]}>Fichas ESF</Text>
+        <Text style={[styles.secaoTitulo, tutorialAtivo && styles.blurredBlock]}>
+          Fichas ESF
+        </Text>
 
         <View style={isTablet ? styles.gridContainer : undefined}>
           {fichasEsf.map((item) => (
@@ -632,7 +598,9 @@ export default function HomeScreen() {
           ))}
         </View>
 
-        <Text style={[styles.secaoTitulo, tutorialAtivo && styles.blurredBlock]}>Outros modulos</Text>
+        <Text style={[styles.secaoTitulo, tutorialAtivo && styles.blurredBlock]}>
+          Outros modulos
+        </Text>
 
         <View style={isTablet ? styles.gridContainer : undefined}>
           {outrosModulos.map((item) => (
@@ -691,7 +659,10 @@ export default function HomeScreen() {
 
 const getStyles = (theme: any) =>
   StyleSheet.create({
-    safe: { flex: 1, backgroundColor: theme.background },
+    safe: {
+      flex: 1,
+      backgroundColor: theme.background,
+    },
 
     fadeOverlay: {
       ...StyleSheet.absoluteFillObject,
@@ -708,13 +679,26 @@ const getStyles = (theme: any) =>
       paddingBottom: 12,
       backgroundColor: theme.card,
       borderBottomWidth: 1,
-      borderBottomColor: theme.background,
+      borderBottomColor: theme.border,
       zIndex: 2,
     },
 
-    headerSaudo: { fontSize: 18, fontWeight: '700', color: theme.text },
-    headerInfo: { fontSize: 12, color: theme.textMuted, marginTop: 2 },
-    headerActions: { flexDirection: 'row', gap: 8 },
+    headerSaudo: {
+      fontSize: 18,
+      fontWeight: '700',
+      color: theme.text,
+    },
+
+    headerInfo: {
+      fontSize: 12,
+      color: theme.textMuted,
+      marginTop: 2,
+    },
+
+    headerActions: {
+      flexDirection: 'row',
+      gap: 8,
+    },
 
     actionBtn: {
       width: 40,
@@ -751,7 +735,11 @@ const getStyles = (theme: any) =>
       justifyContent: 'center',
     },
 
-    syncBadgeTxt: { color: '#fff', fontSize: 10, fontWeight: '700' },
+    syncBadgeTxt: {
+      color: '#fff',
+      fontSize: 10,
+      fontWeight: '700',
+    },
 
     statusBar: {
       flexDirection: 'row',
@@ -762,8 +750,17 @@ const getStyles = (theme: any) =>
       zIndex: 2,
     },
 
-    statusDot: { width: 8, height: 8, borderRadius: 4 },
-    statusTxt: { fontSize: 12, fontWeight: '500', flex: 1 },
+    statusDot: {
+      width: 8,
+      height: 8,
+      borderRadius: 4,
+    },
+
+    statusTxt: {
+      fontSize: 12,
+      fontWeight: '500',
+      flex: 1,
+    },
 
     scroll: {
       flex: 1,
@@ -771,7 +768,12 @@ const getStyles = (theme: any) =>
       zIndex: 2,
     },
 
-    dataHoje: { fontSize: 12, color: theme.textMuted, marginTop: 16, marginBottom: 8 },
+    dataHoje: {
+      fontSize: 12,
+      color: theme.textMuted,
+      marginTop: 16,
+      marginBottom: 8,
+    },
 
     secaoTitulo: {
       fontSize: 13,
@@ -797,14 +799,17 @@ const getStyles = (theme: any) =>
       padding: 14,
       marginBottom: 8,
       borderLeftWidth: 4,
-      shadowColor: '#000',
+      shadowColor: theme.text,
       shadowOffset: { width: 0, height: 1 },
       shadowOpacity: 0.05,
       shadowRadius: 4,
       elevation: 2,
     },
 
-    cardTablet: { width: '48%', marginBottom: 0 },
+    cardTablet: {
+      width: '48%',
+      marginBottom: 0,
+    },
 
     cardIcone: {
       width: 42,
@@ -815,9 +820,21 @@ const getStyles = (theme: any) =>
       marginRight: 12,
     },
 
-    cardTexto: { flex: 1 },
-    cardTitulo: { fontSize: 15, fontWeight: '600', color: theme.text },
-    cardDesc: { fontSize: 12, color: theme.textMuted, marginTop: 2 },
+    cardTexto: {
+      flex: 1,
+    },
+
+    cardTitulo: {
+      fontSize: 15,
+      fontWeight: '600',
+      color: theme.text,
+    },
+
+    cardDesc: {
+      fontSize: 12,
+      color: theme.textMuted,
+      marginTop: 2,
+    },
 
     badge: {
       backgroundColor: theme.dangerBg,
@@ -827,7 +844,11 @@ const getStyles = (theme: any) =>
       marginRight: 8,
     },
 
-    badgeTxt: { color: theme.danger, fontSize: 12, fontWeight: '700' },
+    badgeTxt: {
+      color: theme.danger,
+      fontSize: 12,
+      fontWeight: '700',
+    },
 
     cardApagado: {
       opacity: 0.24,
@@ -865,7 +886,7 @@ const getStyles = (theme: any) =>
       alignItems: 'center',
       borderWidth: 1,
       borderColor: theme.border,
-      shadowColor: '#000',
+      shadowColor: theme.text,
       shadowOffset: { width: 0, height: 8 },
       shadowOpacity: 0.18,
       shadowRadius: 16,
@@ -902,16 +923,16 @@ const getStyles = (theme: any) =>
     },
 
     tutorialPanel: {
-      backgroundColor: '#FFFFFF',
+      backgroundColor: theme.card,
       borderRadius: 22,
       padding: 18,
-      shadowColor: '#000',
+      shadowColor: theme.text,
       shadowOpacity: 0.14,
       shadowRadius: 12,
       shadowOffset: { width: 0, height: 4 },
       elevation: 8,
       borderWidth: 1,
-      borderColor: '#E5E7EB',
+      borderColor: theme.border,
     },
 
     tutorialBadge: {
@@ -919,7 +940,7 @@ const getStyles = (theme: any) =>
       flexDirection: 'row',
       alignItems: 'center',
       gap: 6,
-      backgroundColor: '#EFF6FF',
+      backgroundColor: theme.infoBg,
       borderRadius: 999,
       paddingHorizontal: 10,
       paddingVertical: 6,
@@ -935,14 +956,14 @@ const getStyles = (theme: any) =>
     tutorialTitle: {
       fontSize: 18,
       fontWeight: '800',
-      color: '#0F172A',
+      color: theme.text,
       marginBottom: 8,
     },
 
     tutorialText: {
       fontSize: 14,
       lineHeight: 21,
-      color: '#475569',
+      color: theme.textSecondary,
     },
 
     tutorialDots: {
@@ -957,7 +978,7 @@ const getStyles = (theme: any) =>
       width: 8,
       height: 8,
       borderRadius: 999,
-      backgroundColor: '#CBD5E1',
+      backgroundColor: theme.borderInput,
     },
 
     tutorialDotActive: {
@@ -981,7 +1002,7 @@ const getStyles = (theme: any) =>
     tutorialGhostTxt: {
       fontSize: 14,
       fontWeight: '700',
-      color: '#64748B',
+      color: theme.textMuted,
     },
 
     tutorialRightButtons: {
@@ -992,26 +1013,26 @@ const getStyles = (theme: any) =>
 
     tutorialSecondaryBtn: {
       borderWidth: 1,
-      borderColor: '#CBD5E1',
+      borderColor: theme.borderInput,
       borderRadius: 14,
       paddingHorizontal: 14,
       paddingVertical: 10,
-      backgroundColor: '#FFFFFF',
+      backgroundColor: theme.card,
     },
 
     tutorialSecondaryBtnDisabled: {
-      backgroundColor: '#F8FAFC',
-      borderColor: '#E5E7EB',
+      backgroundColor: theme.cardSecondary,
+      borderColor: theme.border,
     },
 
     tutorialSecondaryTxt: {
       fontSize: 14,
       fontWeight: '700',
-      color: '#334155',
+      color: theme.textSecondary,
     },
 
     tutorialSecondaryTxtDisabled: {
-      color: '#94A3B8',
+      color: theme.textMuted,
     },
 
     tutorialPrimaryBtn: {

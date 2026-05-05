@@ -20,6 +20,8 @@ import { Colors } from '../fichas/colors';
 import { API_BASE_URL } from '@/config';
 import { useAuthStore } from '../../src/store/index';
 
+type AppTheme = typeof Colors.light;
+
 interface Profissional {
   id: number;
   nome: string;
@@ -59,21 +61,29 @@ function normalizeText(texto: string) {
     .trim();
 }
 
-const AVATAR_COLORS = [
-  '#0A4F6E',
-  '#0E7490',
-  '#047857',
-  '#7C3AED',
-  '#B45309',
-  '#BE185D',
-  '#1D4ED8',
-  '#065F46',
-  '#92400E',
-  '#831843',
-];
+function hexWithAlpha(hex: string, alpha: string) {
+  if (!hex || !hex.startsWith('#') || hex.length !== 7) return hex;
+  return `${hex}${alpha}`;
+}
 
-function avatarColor(id: number) {
-  return AVATAR_COLORS[Math.abs(id || 0) % AVATAR_COLORS.length];
+function getAvatarColors(theme: AppTheme) {
+  return [
+    theme.primary,
+    theme.info,
+    theme.success,
+    theme.secaoRoxo,
+    theme.warning,
+    theme.secaoRosa,
+    theme.secaoIndigo,
+    theme.secaoVerde,
+    theme.secaoLaranja,
+    theme.danger,
+  ];
+}
+
+function avatarColor(id: number, theme: AppTheme) {
+  const colors = getAvatarColors(theme);
+  return colors[Math.abs(id || 0) % colors.length];
 }
 
 function getAuthSnapshot() {
@@ -162,11 +172,12 @@ function normalizarHorarios(horarios: unknown): string[] {
 interface CardProps {
   item: VagaGrupo;
   styles: ReturnType<typeof getStyles>;
+  theme: AppTheme;
   dataSelecionada: Date;
 }
 
-function CardAgenda({ item, styles, dataSelecionada }: CardProps) {
-  const cor = avatarColor(item.profissional_id);
+function CardAgenda({ item, styles, theme, dataSelecionada }: CardProps) {
+  const cor = avatarColor(item.profissional_id, theme);
   const dataFormatada = formatarDataSegura(item.data, dataSelecionada);
   const horarios = normalizarHorarios(item.horarios);
 
@@ -190,7 +201,7 @@ function CardAgenda({ item, styles, dataSelecionada }: CardProps) {
           )}
         </View>
 
-        <View style={[styles.badge, { backgroundColor: `${cor}15` }]}>
+        <View style={[styles.badge, { backgroundColor: hexWithAlpha(cor, '18') }]}>
           <Text style={[styles.badgeNumber, { color: cor }]}>{item.total_vagas}</Text>
           <Text style={[styles.badgeLabel, { color: cor }]}>
             {item.total_vagas === 1 ? 'vaga' : 'vagas'}
@@ -201,14 +212,14 @@ function CardAgenda({ item, styles, dataSelecionada }: CardProps) {
       <View style={styles.metaRow}>
         {!!dataFormatada && (
           <View style={styles.metaPill}>
-            <Ionicons name="calendar-outline" size={14} color="#475569" />
+            <Ionicons name="calendar-outline" size={14} color={theme.textMuted} />
             <Text style={styles.metaPillText}>{dataFormatada}</Text>
           </View>
         )}
 
         {!!item.horas_disponiveis && (
           <View style={styles.metaPill}>
-            <Ionicons name="time-outline" size={14} color="#475569" />
+            <Ionicons name="time-outline" size={14} color={theme.textMuted} />
             <Text style={styles.metaPillText}>{item.horas_disponiveis}</Text>
           </View>
         )}
@@ -236,8 +247,8 @@ function CardAgenda({ item, styles, dataSelecionada }: CardProps) {
               style={[
                 styles.horarioChip,
                 {
-                  borderColor: `${cor}35`,
-                  backgroundColor: `${cor}0E`,
+                  borderColor: hexWithAlpha(cor, '45'),
+                  backgroundColor: hexWithAlpha(cor, '14'),
                 },
               ]}
             >
@@ -255,7 +266,7 @@ function CardAgenda({ item, styles, dataSelecionada }: CardProps) {
 
 export default function AgendamentoScreen() {
   const colorScheme = useColorScheme();
-  const theme = Colors[colorScheme ?? 'light'];
+  const theme = Colors[colorScheme === 'dark' ? 'dark' : 'light'];
   const styles = getStyles(theme);
 
   const [dataSelecionada, setDataSelecionada] = useState(new Date());
@@ -387,7 +398,7 @@ export default function AgendamentoScreen() {
         contentContainerStyle={styles.pageContent}
         showsVerticalScrollIndicator={false}
         refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#0A4F6E" />
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={theme.primary} />
         }
       >
         <View style={styles.header}>
@@ -404,14 +415,14 @@ export default function AgendamentoScreen() {
               setSemanaInicio(startOfWeek(hoje, { weekStartsOn: 1 }));
             }}
           >
-            <Ionicons name="today-outline" size={16} color="#0A4F6E" />
+            <Ionicons name="today-outline" size={16} color={theme.primary} />
             <Text style={styles.todayButtonText}>Hoje</Text>
           </TouchableOpacity>
         </View>
 
         <View style={styles.hero}>
           <View style={styles.heroIcon}>
-            <Ionicons name="calendar-clear-outline" size={24} color="#0A4F6E" />
+            <Ionicons name="calendar-clear-outline" size={24} color={theme.primary} />
           </View>
 
           <View style={{ flex: 1 }}>
@@ -426,7 +437,7 @@ export default function AgendamentoScreen() {
               style={styles.weekNavButton}
               onPress={() => setSemanaInicio((prev) => addDays(prev, -7))}
             >
-              <Ionicons name="chevron-back" size={18} color="#0A4F6E" />
+              <Ionicons name="chevron-back" size={18} color={theme.primary} />
             </TouchableOpacity>
 
             <Text style={styles.weekLabel}>{formatarPeriodoSemana(semanaInicio)}</Text>
@@ -435,7 +446,7 @@ export default function AgendamentoScreen() {
               style={styles.weekNavButton}
               onPress={() => setSemanaInicio((prev) => addDays(prev, 7))}
             >
-              <Ionicons name="chevron-forward" size={18} color="#0A4F6E" />
+              <Ionicons name="chevron-forward" size={18} color={theme.primary} />
             </TouchableOpacity>
           </View>
 
@@ -474,19 +485,19 @@ export default function AgendamentoScreen() {
           <Text style={styles.filterTitle}>Filtrar profissional</Text>
 
           <View style={styles.searchBox}>
-            <Ionicons name="search-outline" size={16} color="#64748B" />
+            <Ionicons name="search-outline" size={16} color={theme.textMuted} />
             <TextInput
               style={styles.searchInput}
               value={buscaProfissional}
               onChangeText={setBuscaProfissional}
               placeholder="Buscar profissional em tempo real..."
-              placeholderTextColor="#94A3B8"
+              placeholderTextColor={theme.textMuted}
               autoCapitalize="words"
               returnKeyType="search"
             />
             {!!buscaProfissional && (
               <TouchableOpacity onPress={() => setBuscaProfissional('')}>
-                <Ionicons name="close-circle" size={18} color="#94A3B8" />
+                <Ionicons name="close-circle" size={18} color={theme.textMuted} />
               </TouchableOpacity>
             )}
           </View>
@@ -506,7 +517,7 @@ export default function AgendamentoScreen() {
               <Ionicons
                 name="people-outline"
                 size={14}
-                color={profissionalSelecionado === null ? '#FFFFFF' : '#475569'}
+                color={profissionalSelecionado === null ? '#FFFFFF' : theme.textMuted}
               />
               <Text
                 style={[
@@ -520,12 +531,12 @@ export default function AgendamentoScreen() {
 
             {carregandoProfissionais ? (
               <View style={styles.filterLoading}>
-                <ActivityIndicator size="small" color="#0A4F6E" />
+                <ActivityIndicator size="small" color={theme.primary} />
               </View>
             ) : profissionaisFiltrados.length > 0 ? (
               profissionaisFiltrados.map((prof) => {
                 const ativo = profissionalSelecionado === prof.id;
-                const cor = avatarColor(prof.id);
+                const cor = avatarColor(prof.id, theme);
 
                 return (
                   <TouchableOpacity
@@ -536,7 +547,11 @@ export default function AgendamentoScreen() {
                     <View
                       style={[
                         styles.filterAvatar,
-                        { backgroundColor: ativo ? 'rgba(255,255,255,0.22)' : `${cor}15` },
+                        {
+                          backgroundColor: ativo
+                            ? 'rgba(255,255,255,0.22)'
+                            : hexWithAlpha(cor, '18'),
+                        },
                       ]}
                     >
                       <Text
@@ -577,7 +592,7 @@ export default function AgendamentoScreen() {
               })
             ) : (
               <View style={styles.noSearchResult}>
-                <Ionicons name="search-outline" size={14} color="#94A3B8" />
+                <Ionicons name="search-outline" size={14} color={theme.textMuted} />
                 <Text style={styles.noSearchResultText}>Nenhum profissional encontrado</Text>
               </View>
             )}
@@ -598,7 +613,7 @@ export default function AgendamentoScreen() {
 
         {carregandoLista ? (
           <View style={styles.centerBox}>
-            <ActivityIndicator size="large" color="#0A4F6E" />
+            <ActivityIndicator size="large" color={theme.primary} />
             <Text style={styles.centerText}>Buscando horários disponíveis...</Text>
           </View>
         ) : dados.length > 0 ? (
@@ -608,6 +623,7 @@ export default function AgendamentoScreen() {
                 key={`${item.profissional_id}-${item.data || formatarDataApi(dataSelecionada)}`}
                 item={item}
                 styles={styles}
+                theme={theme}
                 dataSelecionada={dataSelecionada}
               />
             ))}
@@ -615,7 +631,7 @@ export default function AgendamentoScreen() {
         ) : (
           <View style={styles.emptyState}>
             <View style={styles.emptyIcon}>
-              <Ionicons name="calendar-outline" size={38} color="#94A3B8" />
+              <Ionicons name="calendar-outline" size={38} color={theme.textMuted} />
             </View>
             <Text style={styles.emptyTitle}>Nenhum horário livre encontrado</Text>
             <Text style={styles.emptySubtitle}>
@@ -628,27 +644,28 @@ export default function AgendamentoScreen() {
   );
 }
 
-const getStyles = (theme: any) =>
+const getStyles = (theme: AppTheme) =>
   StyleSheet.create({
     safe: {
       flex: 1,
-      backgroundColor: '#F8FAFC',
+      backgroundColor: theme.background,
     },
 
     pageScroll: {
       flex: 1,
+      backgroundColor: theme.background,
     },
     pageContent: {
       paddingBottom: 32,
     },
 
     header: {
-      backgroundColor: '#FFFFFF',
+      backgroundColor: theme.card,
       paddingHorizontal: 16,
       paddingTop: 8,
       paddingBottom: 12,
       borderBottomWidth: 1,
-      borderBottomColor: '#E2E8F0',
+      borderBottomColor: theme.border,
       flexDirection: 'row',
       alignItems: 'center',
       justifyContent: 'space-between',
@@ -656,11 +673,11 @@ const getStyles = (theme: any) =>
     headerTitle: {
       fontSize: 24,
       fontWeight: '800',
-      color: '#0F172A',
+      color: theme.text,
     },
     headerSubtitle: {
       fontSize: 13,
-      color: '#64748B',
+      color: theme.textMuted,
       marginTop: 2,
     },
     todayButton: {
@@ -669,11 +686,13 @@ const getStyles = (theme: any) =>
       gap: 6,
       paddingHorizontal: 12,
       paddingVertical: 10,
-      backgroundColor: '#EFF6FF',
+      backgroundColor: theme.cardSecondary,
       borderRadius: 14,
+      borderWidth: 1,
+      borderColor: theme.border,
     },
     todayButtonText: {
-      color: '#0A4F6E',
+      color: theme.primary,
       fontWeight: '700',
       fontSize: 13,
     },
@@ -681,14 +700,14 @@ const getStyles = (theme: any) =>
     hero: {
       marginHorizontal: 16,
       marginTop: 16,
-      backgroundColor: '#FFFFFF',
+      backgroundColor: theme.card,
       borderRadius: 20,
       padding: 16,
       flexDirection: 'row',
       alignItems: 'center',
       gap: 12,
       borderWidth: 1,
-      borderColor: '#E2E8F0',
+      borderColor: theme.border,
     },
     heroIcon: {
       width: 52,
@@ -696,29 +715,29 @@ const getStyles = (theme: any) =>
       borderRadius: 16,
       alignItems: 'center',
       justifyContent: 'center',
-      backgroundColor: '#EFF6FF',
+      backgroundColor: theme.cardSecondary,
     },
     heroTitle: {
       fontSize: 16,
       fontWeight: '800',
-      color: '#0F172A',
+      color: theme.text,
       textTransform: 'capitalize',
     },
     heroSubtitle: {
       fontSize: 13,
-      color: '#64748B',
+      color: theme.textMuted,
       marginTop: 4,
     },
 
     weekCard: {
       marginHorizontal: 16,
       marginTop: 12,
-      backgroundColor: '#FFFFFF',
+      backgroundColor: theme.card,
       borderRadius: 20,
       paddingVertical: 14,
       paddingHorizontal: 12,
       borderWidth: 1,
-      borderColor: '#E2E8F0',
+      borderColor: theme.border,
     },
     weekHeader: {
       flexDirection: 'row',
@@ -731,16 +750,18 @@ const getStyles = (theme: any) =>
       width: 34,
       height: 34,
       borderRadius: 12,
-      backgroundColor: '#F1F5F9',
+      backgroundColor: theme.cardSecondary,
       alignItems: 'center',
       justifyContent: 'center',
+      borderWidth: 1,
+      borderColor: theme.border,
     },
     weekLabel: {
       flex: 1,
       textAlign: 'center',
       fontSize: 13,
       fontWeight: '700',
-      color: '#334155',
+      color: theme.textSecondary,
       textTransform: 'capitalize',
     },
     daysRow: {
@@ -753,52 +774,55 @@ const getStyles = (theme: any) =>
       alignItems: 'center',
       paddingVertical: 10,
       borderRadius: 14,
-      backgroundColor: '#F8FAFC',
+      backgroundColor: theme.cardSecondary,
       minWidth: 40,
+      borderWidth: 1,
+      borderColor: theme.border,
     },
     dayButtonActive: {
-      backgroundColor: '#0A4F6E',
+      backgroundColor: theme.primary,
+      borderColor: theme.primary,
     },
     dayWeek: {
       fontSize: 10,
       fontWeight: '700',
-      color: '#94A3B8',
+      color: theme.textMuted,
       letterSpacing: 0.5,
     },
     dayNumber: {
       marginTop: 4,
       fontSize: 18,
       fontWeight: '800',
-      color: '#0F172A',
+      color: theme.text,
     },
     dayTextActive: {
       color: '#FFFFFF',
     },
     dayTodayText: {
-      color: '#0A4F6E',
+      color: theme.primary,
     },
     todayDot: {
       width: 5,
       height: 5,
       borderRadius: 5,
-      backgroundColor: '#0A4F6E',
+      backgroundColor: theme.primary,
       marginTop: 5,
     },
 
     filterBox: {
       marginHorizontal: 16,
       marginTop: 12,
-      backgroundColor: '#FFFFFF',
+      backgroundColor: theme.card,
       borderRadius: 20,
       paddingTop: 14,
       paddingBottom: 12,
       borderWidth: 1,
-      borderColor: '#E2E8F0',
+      borderColor: theme.border,
     },
     filterTitle: {
       fontSize: 12,
       fontWeight: '800',
-      color: '#64748B',
+      color: theme.textMuted,
       textTransform: 'uppercase',
       letterSpacing: 0.7,
       paddingHorizontal: 14,
@@ -810,8 +834,8 @@ const getStyles = (theme: any) =>
       height: 44,
       borderRadius: 14,
       borderWidth: 1,
-      borderColor: '#E2E8F0',
-      backgroundColor: '#F8FAFC',
+      borderColor: theme.borderInput,
+      backgroundColor: theme.cardSecondary,
       paddingHorizontal: 12,
       flexDirection: 'row',
       alignItems: 'center',
@@ -820,7 +844,7 @@ const getStyles = (theme: any) =>
     searchInput: {
       flex: 1,
       fontSize: 14,
-      color: '#0F172A',
+      color: theme.text,
       paddingVertical: 0,
     },
     filterScroll: {
@@ -839,14 +863,17 @@ const getStyles = (theme: any) =>
       paddingHorizontal: 12,
       paddingVertical: 10,
       borderRadius: 16,
-      backgroundColor: '#F1F5F9',
+      backgroundColor: theme.cardSecondary,
       flexDirection: 'row',
       alignItems: 'center',
       gap: 8,
       maxWidth: 260,
+      borderWidth: 1,
+      borderColor: theme.border,
     },
     filterChipActive: {
-      backgroundColor: '#0A4F6E',
+      backgroundColor: theme.primary,
+      borderColor: theme.primary,
     },
     filterAvatar: {
       width: 28,
@@ -862,7 +889,7 @@ const getStyles = (theme: any) =>
     filterChipText: {
       fontSize: 13,
       fontWeight: '700',
-      color: '#334155',
+      color: theme.textSecondary,
       maxWidth: 170,
     },
     filterChipTextActive: {
@@ -870,7 +897,7 @@ const getStyles = (theme: any) =>
     },
     filterChipSubtext: {
       fontSize: 11,
-      color: '#64748B',
+      color: theme.textMuted,
       marginTop: 1,
       maxWidth: 170,
     },
@@ -880,9 +907,9 @@ const getStyles = (theme: any) =>
     noSearchResult: {
       minHeight: 44,
       borderRadius: 14,
-      backgroundColor: '#F8FAFC',
+      backgroundColor: theme.cardSecondary,
       borderWidth: 1,
-      borderColor: '#E2E8F0',
+      borderColor: theme.border,
       paddingHorizontal: 12,
       flexDirection: 'row',
       alignItems: 'center',
@@ -890,7 +917,7 @@ const getStyles = (theme: any) =>
     },
     noSearchResultText: {
       fontSize: 12,
-      color: '#64748B',
+      color: theme.textMuted,
       fontWeight: '600',
     },
 
@@ -903,22 +930,22 @@ const getStyles = (theme: any) =>
     },
     summaryCard: {
       flex: 1,
-      backgroundColor: '#FFFFFF',
+      backgroundColor: theme.card,
       borderRadius: 18,
       paddingVertical: 14,
       alignItems: 'center',
       borderWidth: 1,
-      borderColor: '#E2E8F0',
+      borderColor: theme.border,
     },
     summaryNumber: {
       fontSize: 22,
       fontWeight: '800',
-      color: '#0A4F6E',
+      color: theme.primary,
     },
     summaryLabel: {
       marginTop: 4,
       fontSize: 12,
-      color: '#64748B',
+      color: theme.textMuted,
       fontWeight: '600',
     },
 
@@ -929,12 +956,12 @@ const getStyles = (theme: any) =>
     },
 
     card: {
-      backgroundColor: '#FFFFFF',
+      backgroundColor: theme.card,
       borderRadius: 20,
       padding: 16,
       borderWidth: 1,
-      borderColor: '#E2E8F0',
-      shadowColor: '#0F172A',
+      borderColor: theme.border,
+      shadowColor: theme.text,
       shadowOffset: { width: 0, height: 2 },
       shadowOpacity: 0.05,
       shadowRadius: 8,
@@ -964,18 +991,18 @@ const getStyles = (theme: any) =>
     cardNome: {
       fontSize: 15,
       fontWeight: '800',
-      color: '#0F172A',
+      color: theme.text,
     },
     cardEspecialidade: {
       marginTop: 3,
       fontSize: 12,
       fontWeight: '600',
-      color: '#0A4F6E',
+      color: theme.primary,
     },
     cardUnidade: {
       marginTop: 4,
       fontSize: 12,
-      color: '#64748B',
+      color: theme.textMuted,
       lineHeight: 17,
     },
     badge: {
@@ -1008,9 +1035,9 @@ const getStyles = (theme: any) =>
       flexDirection: 'row',
       alignItems: 'center',
       gap: 6,
-      backgroundColor: '#F8FAFC',
+      backgroundColor: theme.cardSecondary,
       borderWidth: 1,
-      borderColor: '#E2E8F0',
+      borderColor: theme.border,
       borderRadius: 999,
       paddingVertical: 7,
       paddingHorizontal: 10,
@@ -1018,7 +1045,7 @@ const getStyles = (theme: any) =>
     metaPillText: {
       fontSize: 12,
       fontWeight: '600',
-      color: '#475569',
+      color: theme.textMuted,
     },
 
     turnosRow: {
@@ -1028,28 +1055,28 @@ const getStyles = (theme: any) =>
       marginTop: 10,
     },
     turnoChip: {
-      backgroundColor: '#ECFEFF',
+      backgroundColor: theme.infoBg,
       borderWidth: 1,
-      borderColor: '#CFFAFE',
+      borderColor: theme.info,
       borderRadius: 999,
       paddingVertical: 6,
       paddingHorizontal: 10,
     },
     turnoChipText: {
-      color: '#0E7490',
+      color: theme.info,
       fontSize: 11,
       fontWeight: '800',
     },
 
     divider: {
       height: 1,
-      backgroundColor: '#E2E8F0',
+      backgroundColor: theme.border,
       marginVertical: 14,
     },
     horariosTitulo: {
       fontSize: 12,
       fontWeight: '800',
-      color: '#475569',
+      color: theme.textSecondary,
       marginBottom: 10,
       textTransform: 'uppercase',
       letterSpacing: 0.5,
@@ -1074,7 +1101,7 @@ const getStyles = (theme: any) =>
     },
     emptyHorariosText: {
       fontSize: 12,
-      color: '#64748B',
+      color: theme.textMuted,
     },
 
     centerBox: {
@@ -1086,7 +1113,7 @@ const getStyles = (theme: any) =>
     },
     centerText: {
       fontSize: 14,
-      color: '#64748B',
+      color: theme.textMuted,
       textAlign: 'center',
     },
 
@@ -1101,22 +1128,22 @@ const getStyles = (theme: any) =>
       borderRadius: 26,
       alignItems: 'center',
       justifyContent: 'center',
-      backgroundColor: '#F8FAFC',
+      backgroundColor: theme.cardSecondary,
       borderWidth: 1,
-      borderColor: '#E2E8F0',
+      borderColor: theme.border,
       marginBottom: 14,
     },
     emptyTitle: {
       fontSize: 17,
       fontWeight: '800',
-      color: '#334155',
+      color: theme.textSecondary,
       textAlign: 'center',
     },
     emptySubtitle: {
       marginTop: 8,
       fontSize: 13,
       lineHeight: 20,
-      color: '#64748B',
+      color: theme.textMuted,
       textAlign: 'center',
     },
   });

@@ -245,7 +245,7 @@ export default function LoginScreen() {
     if (jaViuTutorial === 'sim') {
       router.replace('/(tabs)/home');
     } else {
-      router.replace('/tutorial');
+      router.replace('/(tabs)/home');
     }
   };
 

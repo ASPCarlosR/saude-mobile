@@ -4,8 +4,11 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import * as LocalAuthentication from 'expo-local-authentication';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useAuthStore } from '../../src/store/index';
 import { Colors } from '../fichas/colors';
+
+const BIOMETRIA_ATIVA_KEY = '@biometria_ativa';
 
 export default function DesbloqueioScreen() {
   const theme = Colors[useColorScheme() ?? 'light'];
@@ -23,6 +26,7 @@ export default function DesbloqueioScreen() {
   } = useAuthStore();
 
   const [suportaBiometria, setSuportaBiometria] = useState(false);
+  const [biometriaAtiva, setBiometriaAtiva] = useState(false);
   const [verificando, setVerificando] = useState(false);
 
   useEffect(() => {
@@ -60,12 +64,17 @@ export default function DesbloqueioScreen() {
 
       const compativel = await LocalAuthentication.hasHardwareAsync();
       const cadastrado = await LocalAuthentication.isEnrolledAsync();
+      const biometriaSalva = await AsyncStorage.getItem(BIOMETRIA_ATIVA_KEY);
+      const podeUsarBiometria = compativel && cadastrado && biometriaSalva === 'sim';
 
       setSuportaBiometria(compativel && cadastrado);
+      setBiometriaAtiva(podeUsarBiometria);
 
       console.log('[DESBLOQUEIO] Verificação de biometria:', {
         compativel,
         cadastrado,
+        biometriaSalva,
+        podeUsarBiometria,
         tokenExiste: !!token,
         tenantUrl,
         municipioSlug,
@@ -73,7 +82,7 @@ export default function DesbloqueioScreen() {
         reidratado,
       });
 
-      if (compativel && cadastrado) {
+      if (podeUsarBiometria) {
         await solicitarBiometria();
       }
     } catch (error) {
@@ -140,7 +149,7 @@ export default function DesbloqueioScreen() {
           </Text>
         </View>
 
-        {suportaBiometria ? (
+        {suportaBiometria && biometriaAtiva ? (
           <TouchableOpacity
             style={styles.btnBiometria}
             onPress={solicitarBiometria}
@@ -154,7 +163,7 @@ export default function DesbloqueioScreen() {
         ) : (
           <>
             <Text style={styles.avisoHardware}>
-              Este dispositivo não possui biometria configurada.
+              {suportaBiometria ? 'A biometria não está ativada para este usuário.' : 'Este dispositivo não possui biometria configurada.'}
             </Text>
             <TouchableOpacity style={styles.btnBiometria} onPress={continuarSemBiometria}>
               <Ionicons name="lock-open" size={24} color="#fff" style={{ marginRight: 8 }} />

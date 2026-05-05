@@ -20,6 +20,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import * as LocalAuthentication from 'expo-local-authentication';
 import { useAuthStore, Profissional, Unidade, Equipe } from '../../src/store/index';
 import { API_BASE_URL } from '../../src/config';
 import { Colors } from '../fichas/colors';
@@ -36,6 +37,8 @@ import type { TenantConfigPublica, TenantResumo } from '../../src/types/tentant'
 type Municipio = TenantResumo;
 
 const TUTORIAL_KEY = '@home_tutorial_v1';
+const BIOMETRIA_CONFIGURADA_KEY = '@biometria_configurada';
+const BIOMETRIA_ATIVA_KEY = '@biometria_ativa';
 
 function normalizarLogin(valor: string) {
   return String(valor ?? '')
@@ -179,6 +182,71 @@ export default function LoginScreen() {
     }
   };
 
+
+  const perguntarBiometriaSeNecessario = async () => {
+    try {
+      const jaConfigurou = await AsyncStorage.getItem(BIOMETRIA_CONFIGURADA_KEY);
+      if (jaConfigurou === 'sim') return;
+
+      const compativel = await LocalAuthentication.hasHardwareAsync();
+      const cadastrado = await LocalAuthentication.isEnrolledAsync();
+
+      if (!compativel || !cadastrado) {
+        await AsyncStorage.setItem(BIOMETRIA_CONFIGURADA_KEY, 'sim');
+        await AsyncStorage.setItem(BIOMETRIA_ATIVA_KEY, 'nao');
+        return;
+      }
+
+      await new Promise<void>((resolve) => {
+        Alert.alert(
+          'Ativar biometria?',
+          'Você deseja usar a biometria para desbloquear o aplicativo nas próximas vezes?',
+          [
+            {
+              text: 'Agora não',
+              style: 'cancel',
+              onPress: async () => {
+                await AsyncStorage.setItem(BIOMETRIA_CONFIGURADA_KEY, 'sim');
+                await AsyncStorage.setItem(BIOMETRIA_ATIVA_KEY, 'nao');
+                resolve();
+              },
+            },
+            {
+              text: 'Ativar',
+              onPress: async () => {
+                try {
+                  const resultado = await LocalAuthentication.authenticateAsync({
+                    promptMessage: 'Confirmar biometria',
+                    cancelLabel: 'Cancelar',
+                    disableDeviceFallback: false,
+                  });
+
+                  await AsyncStorage.setItem(BIOMETRIA_CONFIGURADA_KEY, 'sim');
+                  await AsyncStorage.setItem(BIOMETRIA_ATIVA_KEY, resultado.success ? 'sim' : 'nao');
+
+                  if (!resultado.success) {
+                    Alert.alert(
+                      'Biometria não ativada',
+                      'Não foi possível confirmar a biometria agora. Você ainda poderá usar o aplicativo normalmente.',
+                    );
+                  }
+                } catch {
+                  await AsyncStorage.setItem(BIOMETRIA_CONFIGURADA_KEY, 'sim');
+                  await AsyncStorage.setItem(BIOMETRIA_ATIVA_KEY, 'nao');
+                } finally {
+                  resolve();
+                }
+              },
+            },
+          ],
+          { cancelable: false },
+        );
+      });
+    } catch (error) {
+      console.log('[LOGIN] Não foi possível configurar biometria:', error);
+    }
+  };
+
   const efetivarLogin = async (perfilSelecionado: Profissional, token: string) => {
     if (!municipioSelecionado) {
       Alert.alert('Atenção', 'Selecione o município antes de continuar.');
@@ -239,6 +307,8 @@ export default function LoginScreen() {
     setMostrarModalVinculo(false);
     setReidratado(true);
     setBloqueado(false);
+
+    await perguntarBiometriaSeNecessario();
 
     const jaViuTutorial = await AsyncStorage.getItem(TUTORIAL_KEY);
 

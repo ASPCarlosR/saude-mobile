@@ -10,6 +10,7 @@ import {
   useWindowDimensions,
   useColorScheme,
   Appearance,
+  ActivityIndicator,
 } from 'react-native';
 import { router } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -189,7 +190,7 @@ function TutorialPanel({
 export default function HomeScreen() {
   const { width } = useWindowDimensions();
   const isTablet = width >= 768;
-  const { profissional } = useAuthStore();
+  const { profissional, setLogout, setBloqueado } = useAuthStore();
   const { sincronizando, setSincronizando, setUltimoSync, ultimoSync } = useSyncStore();
 
   const [pendentesGeral, setPendentesGeral] = useState(0);
@@ -363,6 +364,31 @@ export default function HomeScreen() {
     Appearance.setColorScheme(modo === 'light' ? 'dark' : 'light');
   };
 
+  function handleLogout() {
+    if (sincronizando) {
+      Alert.alert('Sincronização em andamento', 'Aguarde a sincronização finalizar para sair da conta.');
+      return;
+    }
+
+    Alert.alert(
+      'Sair da conta',
+      'Deseja realmente sair e voltar para a tela de login?',
+      [
+        { text: 'Cancelar', style: 'cancel' },
+        {
+          text: 'Sair',
+          style: 'destructive',
+          onPress: () => {
+            setBloqueado(false);
+            setLogout();
+            router.replace('/(auth)/login');
+          },
+        },
+      ],
+    );
+  }
+
+
   const fichasEsf = [
     {
       modulo: TENANT_MODULES.VISITA_DOMICILIAR,
@@ -503,6 +529,14 @@ export default function HomeScreen() {
           </TouchableOpacity>
 
           <TouchableOpacity
+            style={[styles.actionBtn, tutorialAtivo && styles.dimmedButton]}
+            onPress={handleLogout}
+            disabled={sincronizando || tutorialAtivo}
+          >
+            <Ionicons name="log-out-outline" size={22} color={theme.danger} />
+          </TouchableOpacity>
+
+          <TouchableOpacity
             style={[
               styles.actionBtn,
               isTutorialTargetApagado('sync') && styles.dimmedButton,
@@ -511,17 +545,21 @@ export default function HomeScreen() {
             onPress={handleSync}
             disabled={sincronizando || !podeSincronizar(tenantConfig) || tutorialAtivo}
           >
-            <Ionicons
-              name={sincronizando ? 'sync' : online ? 'cloud-upload-outline' : 'cloud-offline-outline'}
-              size={22}
-              color={
-                !podeSincronizar(tenantConfig)
-                  ? theme.textMuted
-                  : online
-                    ? theme.primary
-                    : theme.textMuted
-              }
-            />
+            {sincronizando ? (
+              <ActivityIndicator size="small" color={theme.primary} />
+            ) : (
+              <Ionicons
+                name={online ? 'cloud-upload-outline' : 'cloud-offline-outline'}
+                size={22}
+                color={
+                  !podeSincronizar(tenantConfig)
+                    ? theme.textMuted
+                    : online
+                      ? theme.primary
+                      : theme.textMuted
+                }
+              />
+            )}
             {pendentesGeral > 0 && !sincronizando && podeSincronizar(tenantConfig) && (
               <View style={styles.syncBadge}>
                 <Text style={styles.syncBadgeTxt}>{pendentesGeral}</Text>
@@ -617,6 +655,16 @@ export default function HomeScreen() {
 
         <View style={{ height: 32 }} />
       </ScrollView>
+
+      {sincronizando ? (
+        <View style={styles.syncOverlay}>
+          <View style={styles.syncOverlayCard}>
+            <ActivityIndicator size="large" color={theme.primary} />
+            <Text style={styles.syncOverlayTitulo}>Sincronizando dados</Text>
+            <Text style={styles.syncOverlayTexto}>Não feche o aplicativo até finalizar.</Text>
+          </View>
+        </View>
+      ) : null}
 
       {tutorialAtivo && tutorialAtual ? (
         <View
@@ -797,6 +845,45 @@ const getStyles = (theme: any) =>
 
     blurredBlock: {
       opacity: 0.32,
+    },
+
+    syncOverlay: {
+      ...StyleSheet.absoluteFillObject,
+      backgroundColor: 'rgba(15, 23, 42, 0.35)',
+      alignItems: 'center',
+      justifyContent: 'center',
+      padding: 24,
+      zIndex: 30,
+    },
+
+    syncOverlayCard: {
+      width: '100%',
+      maxWidth: 340,
+      backgroundColor: theme.card,
+      borderRadius: 20,
+      padding: 24,
+      alignItems: 'center',
+      borderWidth: 1,
+      borderColor: theme.border,
+      shadowColor: '#000',
+      shadowOffset: { width: 0, height: 8 },
+      shadowOpacity: 0.18,
+      shadowRadius: 16,
+      elevation: 10,
+    },
+
+    syncOverlayTitulo: {
+      fontSize: 18,
+      fontWeight: '800',
+      color: theme.text,
+      marginTop: 16,
+    },
+
+    syncOverlayTexto: {
+      fontSize: 13,
+      color: theme.textMuted,
+      textAlign: 'center',
+      marginTop: 6,
     },
 
     tutorialPanelWrap: {

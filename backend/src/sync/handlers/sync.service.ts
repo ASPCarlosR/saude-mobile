@@ -1014,7 +1014,7 @@ export class SyncService {
       .filter(Boolean);
   }
 
-  async listarIndicadoresApsPendentes(profissionalId: number, municipioSlug: string) {
+   async listarIndicadoresApsPendentes(profissionalId: number, municipioSlug: string) {
     const db = await this.getDb(municipioSlug);
 
     const quadRows = await db.query(
@@ -1107,6 +1107,7 @@ export class SyncService {
       FROM idosos i
       JOIN sdvisitadomiciliar v
         ON v.sdvisitadomiciliarusuarioid = i.sdpessoaid
+       AND v.sdvisitadomiciliarequipeid = $1
       JOIN sdunidade u
         ON u.sdunidadeid = v.sdvisitadomiciliarunidadeid
        AND u.sdparamunidintegraesus = 'S'
@@ -1161,7 +1162,7 @@ export class SyncService {
       i.dtnasc AS data_nascimento,
       CASE
         WHEN COALESCE(vi.qtd_visitas, 0) >= 2 AND COALESCE(vi.gap_dias, 0) < 30 THEN 0
-        ELSE COALESCE(va.total_visitas_12m, 0)
+        ELSE LEAST(COALESCE(va.total_visitas_12m, 0), 2)
       END AS realizado,
       COALESCE(va.total_visitas_12m, 0) AS realizado_total,
       2 AS necessario,
@@ -1276,6 +1277,7 @@ export class SyncService {
        AND em.sdequipemedicatipoid = '70'
       JOIN sdvisitadomiciliar v
         ON v.sdvisitadomiciliarusuarioid = pdq.sdpessoaid
+       AND v.sdvisitadomiciliarequipeid = pdq.equipeid
       JOIN sdunidade u
         ON u.sdunidadeid = v.sdvisitadomiciliarunidadeid
        AND u.sdparamunidintegraesus = 'S'
@@ -1308,11 +1310,13 @@ export class SyncService {
         ON v.sdvisitadomiciliarusuarioid = pdq.sdpessoaid
       JOIN sdequipemedica ev
         ON ev.sdequipemedicaid = v.sdvisitadomiciliarequipeid
+       AND ev.sdequipemedicaid = pdq.equipeid
        AND ev.sdequipemedicatipoid IN ('70','76')
       JOIN sdunidade u
         ON u.sdunidadeid = v.sdvisitadomiciliarunidadeid
        AND u.sdparamunidintegraesus = 'S'
       WHERE v.sdvisitadomiciliarcboprofid IN ('322255','515105')
+        AND v.sdvisitadomiciliardesfecho = 1
         AND v.sdvisitadomiciliardiabetes = 'S'
         AND v.sdvisitadomiciliardata::date BETWEEN (pdq.dt_fim - INTERVAL '1 year') AND pdq.dt_fim
       GROUP BY pdq.sdpessoaid
@@ -1324,7 +1328,7 @@ export class SyncService {
       pdq.dtnasc AS data_nascimento,
       CASE
         WHEN COALESCE(vd.qtd_visitas, 0) >= 2 AND COALESCE(vd.gap_dias, 0) < 30 THEN 0
-        ELSE COALESCE(va.total_visitas_12m, 0)
+        ELSE LEAST(COALESCE(va.total_visitas_12m, 0), 2)
       END AS realizado,
       COALESCE(va.total_visitas_12m, 0) AS realizado_total,
       2 AS necessario,
@@ -1425,6 +1429,7 @@ export class SyncService {
        AND em.sdequipemedicatipoid = '70'
       JOIN sdvisitadomiciliar v
         ON v.sdvisitadomiciliarusuarioid = e.sdpessoaid
+       AND v.sdvisitadomiciliarequipeid = e.equipeid
       JOIN sdunidade u
         ON u.sdunidadeid = v.sdvisitadomiciliarunidadeid
        AND u.sdparamunidintegraesus = 'S'
@@ -1458,11 +1463,13 @@ export class SyncService {
         ON v.sdvisitadomiciliarusuarioid = e.sdpessoaid
       JOIN sdequipemedica ev
         ON ev.sdequipemedicaid = v.sdvisitadomiciliarequipeid
+       AND ev.sdequipemedicaid = e.equipeid
        AND ev.sdequipemedicatipoid IN ('70','76')
       JOIN sdunidade u
         ON u.sdunidadeid = v.sdvisitadomiciliarunidadeid
        AND u.sdparamunidintegraesus = 'S'
       WHERE v.sdvisitadomiciliarcboprofid IN ('322255','515105')
+        AND v.sdvisitadomiciliardesfecho = 1
         AND v.sdvisitadomiciliarhipertensao = 'S'
         AND v.sdvisitadomiciliardata::date BETWEEN (t.dt_fim - INTERVAL '1 year') AND t.dt_fim
       GROUP BY e.sdpessoaid
@@ -1474,7 +1481,7 @@ export class SyncService {
       e.dtnasc AS data_nascimento,
       CASE
         WHEN COALESCE(vh.qtd_visitas, 0) >= 2 AND COALESCE(vh.gap_dias, 0) < 30 THEN 0
-        ELSE COALESCE(va.total_visitas_12m, 0)
+        ELSE LEAST(COALESCE(va.total_visitas_12m, 0), 2)
       END AS realizado,
       COALESCE(va.total_visitas_12m, 0) AS realizado_total,
       2 AS necessario,
@@ -1669,6 +1676,7 @@ export class SyncService {
       FROM tmp_elegiveis e
       LEFT JOIN sdvisitadomiciliar a
         ON a.sdvisitadomiciliarusuarioid = e.paciente_id
+       AND a.sdvisitadomiciliarequipeid = e.equipe_id
        AND a.sdvisitadomiciliardesfecho = 1
       JOIN sdequipemedica em
         ON em.sdequipemedicaid = e.equipe_id
@@ -1688,7 +1696,7 @@ export class SyncService {
       e.nome_exib AS nome,
       e.cpf,
       e.dtnasc AS data_nascimento,
-      COALESCE(v.qtde_visitas, 0) AS realizado,
+      LEAST(COALESCE(v.qtde_visitas, 0), 3) AS realizado,
       COALESCE(v.qtde_visitas, 0) AS realizado_total,
       3 AS necessario,
       NULL::text AS flag2,
@@ -1869,10 +1877,11 @@ export class SyncService {
       FROM tmp_elegiveis e
       LEFT JOIN sdvisitadomiciliar a
         ON a.sdvisitadomiciliarusuarioid = e.paciente_id
+       AND a.sdvisitadomiciliarequipeid = e.equipe_pessoa_id
+       AND a.sdvisitadomiciliardesfecho = 1
       JOIN sdequipemedica em
         ON em.sdequipemedicaid = e.equipe_pessoa_id
        AND em.sdequipemedicatipoid IN ('70','76')
-      WHERE a.sdvisitadomiciliardesfecho = 1
       GROUP BY 1,2,3
     ),
     atendidos AS (
@@ -1888,7 +1897,7 @@ export class SyncService {
       e.nome_exib AS nome,
       e.cpf,
       e.dtnasc AS data_nascimento,
-      COALESCE(v.qtde_visitas, 0) AS realizado,
+      LEAST(COALESCE(v.qtde_visitas, 0), 1) AS realizado,
       COALESCE(v.qtde_visitas, 0) AS realizado_total,
       1 AS necessario,
       NULL::text AS flag2,
@@ -2016,6 +2025,7 @@ export class SyncService {
        AND em.sdequipemedicatipoid IN ('70','76')
       LEFT JOIN sdvisitadomiciliar v
         ON v.sdvisitadomiciliarusuarioid = el.paciente_id
+       AND v.sdvisitadomiciliarequipeid = el.equipe_pessoa_id
        AND v.sdvisitadomiciliardesfecho = 1
        AND v.sdvisitadomiciliarcboprofid IN ('515105','322255')
        AND v.sdvisitadomiciliardata::date BETWEEN el.pessoa_dt_nasc AND el.pessoa_dt_nasc + INTERVAL '6 months'
@@ -2053,7 +2063,8 @@ export class SyncService {
       COALESCE(p.nome_exib, e.nome_exib) AS nome,
       COALESCE(p.cpf, e.cpf) AS cpf,
       COALESCE(p.pessoa_dt_nasc, e.pessoa_dt_nasc) AS data_nascimento,
-      COALESCE(p.cons_30dias, 0) + COALESCE(p.cons_6meses, 0) AS realizado,
+      (CASE WHEN COALESCE(p.cons_30dias, 0) > 0 THEN 1 ELSE 0 END)
+        + (CASE WHEN COALESCE(p.cons_6meses, 0) > 0 THEN 1 ELSE 0 END) AS realizado,
       COALESCE(p.cons_30dias, 0) + COALESCE(p.cons_6meses, 0) AS realizado_total,
       2 AS necessario,
       CASE WHEN COALESCE(p.cons_30dias,0) > 0 THEN 'S' ELSE 'N' END AS flag2,
@@ -2224,12 +2235,29 @@ export class SyncService {
     const formatarData = (d: any) => {
       if (!d) return '';
 
-      const valor = String(d).slice(0, 10); // pega yyyy-mm-dd com segurança
-      const [ano, mes, dia] = valor.split('-');
+      if (d instanceof Date && !Number.isNaN(d.getTime())) {
+        const dia = String(d.getUTCDate()).padStart(2, '0');
+        const mes = String(d.getUTCMonth() + 1).padStart(2, '0');
+        const ano = d.getUTCFullYear();
+        return `${dia}/${mes}/${ano}`;
+      }
 
-      if (!ano || !mes || !dia) return '';
+      const valor = String(d).trim();
+      const matchIso = valor.match(/^(\d{4})-(\d{2})-(\d{2})/);
+      if (matchIso) {
+        const [, ano, mes, dia] = matchIso;
+        return `${dia}/${mes}/${ano}`;
+      }
 
-      return `${dia}/${mes}/${ano}`;
+      const dt = new Date(valor);
+      if (!Number.isNaN(dt.getTime())) {
+        const dia = String(dt.getUTCDate()).padStart(2, '0');
+        const mes = String(dt.getUTCMonth() + 1).padStart(2, '0');
+        const ano = dt.getUTCFullYear();
+        return `${dia}/${mes}/${ano}`;
+      }
+
+      return '';
     };
 
     return {

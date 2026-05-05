@@ -172,6 +172,40 @@ function formatarHojeLongo() {
   });
 }
 
+
+function formatarDataQuadrimestre(data?: string | null) {
+  if (!data) return '';
+
+  const valor = String(data).trim();
+  const matchIso = valor.match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if (matchIso) {
+    const [, ano, mes, dia] = matchIso;
+    return `${dia}/${mes}/${ano}`;
+  }
+
+  const dt = new Date(valor);
+  if (Number.isNaN(dt.getTime())) return '';
+
+  const dia = String(dt.getUTCDate()).padStart(2, '0');
+  const mes = String(dt.getUTCMonth() + 1).padStart(2, '0');
+  const ano = dt.getUTCFullYear();
+
+  return `${dia}/${mes}/${ano}`;
+}
+
+function montarTextoQuadrimestre(quadrimestre?: ApiResponse['quadrimestre']) {
+  if (!quadrimestre) return '';
+
+  const descricao = String(quadrimestre.descricao ?? '').trim();
+  if (descricao && descricao !== 'a' && descricao !== ' a ') return descricao;
+
+  const inicio = formatarDataQuadrimestre(quadrimestre.dataInicial);
+  const fim = formatarDataQuadrimestre(quadrimestre.dataFinal);
+
+  if (inicio && fim) return `${inicio} a ${fim}`;
+  return '';
+}
+
 // ─── Componente de card de paciente (memoizado) ───────────────────────────────
 
 const PacienteCard = React.memo(
@@ -480,7 +514,7 @@ export default function IndicadoresScreen() {
       });
 
       setGrupos(dadosNormalizados);
-      setQuadrimestreAtual(result.quadrimestre?.descricao ?? '');
+      setQuadrimestreAtual(montarTextoQuadrimestre(result.quadrimestre));
     } catch (e: any) {
       setErro(e?.message || 'Erro ao carregar indicadores.');
       setGrupos([]);

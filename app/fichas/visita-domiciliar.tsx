@@ -20,6 +20,7 @@ import { router, useLocalSearchParams } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import SignatureScreen, { SignatureViewRef } from 'react-native-signature-canvas';
+import * as Location from 'expo-location';
 
 import { useAuthStore } from '../../src/store/index';
 import { database, visitaCollection, pessoaCollection } from '../../src/db/index';
@@ -369,7 +370,7 @@ function Secao({
       onAntesFechar();
     }
 
-    setAberta((valorAtual) => !valorAtual);
+    setAberta((valorAtual:any) => !valorAtual);
   };
 
   return (
@@ -881,6 +882,34 @@ export default function VisitaDomiciliarScreen() {
   const alturaDigitada = parseFloat(form.altura.replace(',', '.')) || 0;
   const alturaParaEnviar = alturaDigitada > 10 ? alturaDigitada / 100 : alturaDigitada;
 
+  const obterCoordenadasVisita = async (): Promise<{ latitude: string; longitude: string }> => {
+    try {
+      const { status } = await Location.requestForegroundPermissionsAsync();
+
+      if (status !== 'granted') {
+        console.log('[VISITA][LOCALIZACAO] Permissão negada pelo usuário.');
+        return { latitude: '', longitude: '' };
+      }
+
+      const posicao = await Location.getCurrentPositionAsync({
+        accuracy: Location.Accuracy.High,
+      });
+
+      const latitude = String(posicao.coords.latitude);
+      const longitude = String(posicao.coords.longitude);
+
+      console.log('[VISITA][LOCALIZACAO] Coordenadas capturadas:', {
+        latitude,
+        longitude,
+      });
+
+      return { latitude, longitude };
+    } catch (error) {
+      console.log('[VISITA][LOCALIZACAO] Erro ao capturar localização:', error);
+      return { latitude: '', longitude: '' };
+    }
+  };
+
   const salvarVisitas = async (assinatura?: string) => {
     const microAreaFinal = form.microArea || String(profissional?.microArea || '');
 
@@ -893,6 +922,7 @@ export default function VisitaDomiciliarScreen() {
     try {
       const { v4: uuidv4 } = await import('uuid');
       const dataSql = formatarDataParaBanco(form.data);
+      const coordenadas = await obterCoordenadasVisita();
 
       await database.write(async () => {
         const operacoes: any[] = [];
@@ -912,6 +942,8 @@ export default function VisitaDomiciliarScreen() {
           r.desfecho = m ? desfechos[m.id] || 1 : 3;
           r.assinaturaBase64 = assinatura || '';
           r.profissionalId = profissional?.id;
+          r.latitude = coordenadas.latitude;
+          r.longitude = coordenadas.longitude;
 
           const camposSn = [
             'foraArea', 'visitaCompartilhada', 'cadAtualiz', 'periodica',
@@ -1053,8 +1085,8 @@ export default function VisitaDomiciliarScreen() {
 
             SDVisitaDomiciliarDesfecho: m ? desfechos[m.id] || 1 : 3,
             SDVisitaDomiciliarObs: form.obs,
-            SDVisitaDomiciliarLatitude: null,
-            SDVisitaDomiciliarLongitude: null,
+            SDVisitaDomiciliarLatitude: coordenadas.latitude,
+            SDVisitaDomiciliarLongitude: coordenadas.longitude,
             SDVisitaDomiciliarAssinaturaPaciente: assinatura || '',
 
             SDVisitaDomiciliarProfId: profissional?.id || null,

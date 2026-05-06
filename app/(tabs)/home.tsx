@@ -10,6 +10,7 @@ import {
   useWindowDimensions,
   useColorScheme,
   ActivityIndicator,
+  Image
 } from 'react-native';
 import { router, useLocalSearchParams } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -17,7 +18,7 @@ import { Ionicons } from '@expo/vector-icons';
 import NetInfo from '@react-native-community/netinfo';
 import { Q } from '@nozbe/watermelondb';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-
+import { useProfileStore } from '../../src/store/profile.store';
 import { useAuthStore, useSyncStore } from '@store/index';
 import { database } from '@db/index';
 import { sincronizar } from '@/sync/handlers/index';
@@ -188,7 +189,7 @@ function TutorialPanel({
 
 export default function HomeScreen() {
   const params = useLocalSearchParams<{ reiniciarTutorial?: string }>();
-
+  const fotoPerfilUri = useProfileStore((state) => state.fotoPerfilUri);
   const { width } = useWindowDimensions();
   const isTablet = width >= 768;
   const { profissional } = useAuthStore();
@@ -369,6 +370,20 @@ export default function HomeScreen() {
       setSincronizando(false);
     }
   }
+  function getIniciais(nome?: string) {
+    const partes = String(nome || '')
+      .trim()
+      .split(/\s+/)
+      .filter(Boolean);
+
+    if (!partes.length) return '?';
+
+    if (partes.length === 1) {
+      return partes[0].charAt(0).toUpperCase();
+    }
+
+    return `${partes[0].charAt(0)}${partes[partes.length - 1].charAt(0)}`.toUpperCase();
+  }
 
   const fichasEsf = [
     {
@@ -481,14 +496,32 @@ export default function HomeScreen() {
       {tutorialAtivo ? <View pointerEvents="none" style={styles.fadeOverlay} /> : null}
 
       <View style={styles.header}>
-        <View style={tutorialAtivo ? styles.blurredBlock : undefined}>
-          <Text style={styles.headerSaudo}>
-            OLA, {profissional?.nome?.split(' ')[0] ?? 'Profissional'}{' '}
-            {profissional?.nome?.split(' ')[1] ?? ''}
-          </Text>
-          <Text style={styles.headerInfo}>
-            {profissional?.cnes} · Equipe {profissional?.ine}
-          </Text>
+        <View
+          style={[
+            styles.headerUserBox,
+            tutorialAtivo ? styles.blurredBlock : undefined,
+          ]}
+        >
+          <View style={styles.headerAvatar}>
+            {fotoPerfilUri ? (
+              <Image source={{ uri: fotoPerfilUri }} style={styles.headerAvatarImage} />
+            ) : (
+              <Text style={styles.headerAvatarText}>
+                {getIniciais(profissional?.nome)}
+              </Text>
+            )}
+          </View>
+
+          <View style={styles.headerUserText}>
+            <Text style={styles.headerSaudo} numberOfLines={1}>
+              OLA, {profissional?.nome?.split(' ')[0] ?? 'Profissional'}{' '}
+              {profissional?.nome?.split(' ')[1] ?? ''}
+            </Text>
+
+            <Text style={styles.headerInfo} numberOfLines={1}>
+              {profissional?.cnes} · Equipe {profissional?.ine}
+            </Text>
+          </View>
         </View>
 
         <View style={styles.headerActions}>
@@ -790,6 +823,39 @@ const getStyles = (theme: any) =>
       flexWrap: 'wrap',
       gap: 12,
     },
+    headerUserBox: {
+  flex: 1,
+  flexDirection: 'row',
+  alignItems: 'center',
+  gap: 10,
+  paddingRight: 10,
+},
+
+headerAvatar: {
+  width: 42,
+  height: 42,
+  borderRadius: 15,
+  backgroundColor: theme.primary,
+  alignItems: 'center',
+  justifyContent: 'center',
+  overflow: 'hidden',
+},
+
+headerAvatarImage: {
+  width: '100%',
+  height: '100%',
+  borderRadius: 15,
+},
+
+headerAvatarText: {
+  color: '#FFFFFF',
+  fontSize: 14,
+  fontWeight: '900',
+},
+
+headerUserText: {
+  flex: 1,
+},
 
     card: {
       flexDirection: 'row',

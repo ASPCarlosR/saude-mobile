@@ -52,6 +52,18 @@ export class SyncController {
     return this.syncService.obterParametrosGerais(slug);
   }
 
+
+
+  @UseGuards(JwtAuthGuard)
+  @Get('permissoes-app')
+  async obterPermissoesApp(
+    @Req() req: any,
+    @Headers('x-municipio-slug') slug: string,
+  ) {
+    const usuarioId = req.user?.sub;
+    return this.syncService.obterPermissoesApp(slug, usuarioId);
+  }
+
   @UseGuards(JwtAuthGuard)
   @Get('domicilios')
   async buscarDomicilios(

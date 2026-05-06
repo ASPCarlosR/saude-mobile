@@ -83,7 +83,8 @@
         "expo-build-properties",
         {
           "android": {
-            "usesCleartextTraffic": true
+            "usesCleartextTraffic": true,
+             "navigationBarColor": "#000000"
           }
         }
       ],

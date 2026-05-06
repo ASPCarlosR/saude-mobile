@@ -37,5 +37,12 @@ export const api = {
       console.error('[API DEBUG] Erro de Rede:', error.message);
       throw error;
     }
+
+    
   },
+  
 };
+export async function obterPermissoesApp() {
+  const response = await api.get('/api/sync/permissoes-app');
+  return response.data;
+}

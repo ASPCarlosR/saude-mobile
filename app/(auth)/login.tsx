@@ -69,7 +69,12 @@ export default function LoginScreen() {
   const [tokenTemporario, setTokenTemporario] = useState('');
   const [mostrarModalVinculo, setMostrarModalVinculo] = useState(false);
 
-  const { setSessaoCompleta, setBloqueado, setReidratado } = useAuthStore();
+  const {
+    setSessaoCompleta,
+    setBloqueado,
+    setReidratado,
+    setPermissoesApp,
+  } = useAuthStore();
 
   const carregarMunicipios = async () => {
     setCarregandoMunicipios(true);
@@ -276,6 +281,7 @@ export default function LoginScreen() {
       unidadeId: perfilSelecionado.unidadeId,
       unidadeNome: perfilSelecionado.unidadeNome,
       cboCodigo: perfilSelecionado.cboCodigo,
+      cboDescricao: perfilSelecionado.cboDescricao,
       microArea: perfilSelecionado.microArea,
     };
 
@@ -303,6 +309,31 @@ export default function LoginScreen() {
       unidadeObj,
       equipeObj,
     );
+
+    try {
+      const permissoesResponse = await fetch(`${urlParaSincronismo}/api/sync/permissoes-app`, {
+        method: 'GET',
+        headers: {
+          Authorization: `Bearer ${token}`,
+          'x-municipio-slug': municipioSelecionado.slug,
+        },
+      });
+
+      if (permissoesResponse.ok) {
+        const permissoesApp = await permissoesResponse.json();
+        console.log('[PERMISSOES_APP][LOGIN]', permissoesApp);
+        setPermissoesApp(permissoesApp);
+      } else {
+        console.log(
+          '[PERMISSOES_APP][LOGIN] Falha ao buscar permissões:',
+          permissoesResponse.status,
+        );
+        setPermissoesApp(null);
+      }
+    } catch (error) {
+      console.log('[PERMISSOES_APP][LOGIN] Erro ao buscar permissões:', error);
+      setPermissoesApp(null);
+    }
 
     setMostrarModalVinculo(false);
     setReidratado(true);

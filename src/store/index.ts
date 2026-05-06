@@ -29,9 +29,21 @@ export interface Equipe {
   unidadeId: number;
   unidadeNome: string;
   cboCodigo: string;
+  cboDescricao: string;
   microArea: string;
   ine: string;
 }
+
+export type AcaoPermissaoApp = 'acessa' | 'altera' | 'inclui' | 'exclui';
+
+export type PermissaoAppModulo = {
+  acessa: boolean;
+  altera: boolean;
+  inclui: boolean;
+  exclui: boolean;
+};
+
+export type PermissoesApp = Record<string, PermissaoAppModulo>;
 
 interface AuthState {
   profissional: Profissional | null;
@@ -44,7 +56,9 @@ interface AuthState {
   equipe: Equipe | null;
   reidratado: boolean;
   ignorarBloqueioTemporario: boolean;
+  permissoesApp: PermissoesApp | null;
 
+  setPermissoesApp: (permissoesApp: PermissoesApp | null) => void;
   setIgnorarBloqueioTemporario: (valor: boolean) => void;
   setReidratado: (r: boolean) => void;
 
@@ -93,6 +107,10 @@ export const useAuthStore = create<AuthState>()(
       equipe: null,
       reidratado: false,
       ignorarBloqueioTemporario: false,
+      permissoesApp: null,
+
+      setPermissoesApp: (permissoesApp) => set({ permissoesApp }),
+
       setReidratado: (r) => set({ reidratado: r }),
 
       setUnidade: (unidade) => set({ unidade }),
@@ -139,6 +157,7 @@ export const useAuthStore = create<AuthState>()(
           municipioSlug: null,
           unidade: null,
           equipe: null,
+          permissoesApp: null,
         }),
 
       setProfissional: (prof) => set({ profissional: prof }),
@@ -161,6 +180,7 @@ export const useAuthStore = create<AuthState>()(
           String(state.municipioSlug).trim()
         );
       },
+
       setIgnorarBloqueioTemporario: (valor: boolean) =>
         set({
           ignorarBloqueioTemporario: valor,
@@ -187,10 +207,10 @@ export const useAuthStore = create<AuthState>()(
           tokenExiste: !!state?.token,
           tenantUrl: state?.tenantUrl,
           municipioSlug: state?.municipioSlug,
+          permissoesAppExiste: !!state?.permissoesApp,
           sessaoCompleta,
         });
 
-        // Se quiser forçar bloqueio ao reabrir o app quando existe sessão válida:
         if (sessaoCompleta) {
           state?.setBloqueado(true);
         }
@@ -203,6 +223,7 @@ export const useAuthStore = create<AuthState>()(
         municipioSlug: state.municipioSlug,
         unidade: state.unidade,
         equipe: state.equipe,
+        permissoesApp: state.permissoesApp,
       }),
     }
   )

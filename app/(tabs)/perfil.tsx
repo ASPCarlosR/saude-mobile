@@ -9,12 +9,12 @@ import {
   useColorScheme,
   View,
   ActionSheetIOS,
-  Platform
+  Platform,
+  Image,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
-import { Image } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
 import * as FileSystem from 'expo-file-system/legacy';
 import { useProfileStore } from '../../src/store/profile.store';
@@ -43,147 +43,229 @@ function formatarTexto(valor?: string | number | null, fallback = 'Não informad
   return texto || fallback;
 }
 
+function formatarMunicipioSlug(slug?: string | null) {
+  const texto = String(slug ?? '').trim();
+
+  if (!texto) return 'Não informado';
+
+  return texto
+    .replace(/-/g, ' ')
+    .replace(/_/g, ' ')
+    .replace(/\b\w/g, (letra) => letra.toUpperCase());
+}
+
+
+
 export default function PerfilScreen() {
-  const { profissional, setLogout, setBloqueado } = useAuthStore();
+  const {
+    profissional,
+    setLogout,
+    setBloqueado,
+    municipioSlug,
+    unidade: unidadeStore,
+    equipe: equipeStore,
+  } = useAuthStore();
 
   const modo = useColorScheme() ?? 'light';
   const theme = Colors[modo];
   const styles = useMemo(() => getStyles(theme), [theme]);
+
   const fotoPerfilUri = useProfileStore((state) => state.fotoPerfilUri);
   const setFotoPerfilUri = useProfileStore((state) => state.setFotoPerfilUri);
+
   const setIgnorarBloqueioTemporario = useAuthStore(
     (state) => state.setIgnorarBloqueioTemporario,
   );
-  async function salvarFotoPerfil(uri: string) {
-  try {
-    const extensaoOriginal = uri.split('.').pop()?.split('?')[0];
-    const extensao =
-      extensaoOriginal && extensaoOriginal.length <= 5
-        ? extensaoOriginal
-        : 'jpg';
-
-    const nomeArquivo = `foto-perfil-${Date.now()}.${extensao}`;
-    const destinoUri = `${FileSystem.documentDirectory}${nomeArquivo}`;
-
-    await FileSystem.copyAsync({
-      from: uri,
-      to: destinoUri,
-    });
-
-    setFotoPerfilUri(destinoUri);
-  } catch (error: any) {
-    console.log('[PERFIL][FOTO] Erro ao salvar foto:', error);
-
-    Alert.alert(
-      'Erro ao salvar foto',
-      error?.message || 'Não foi possível salvar a foto de perfil.',
-    );
-  }
-}
-  async function escolherFotoDaGaleria() {
-  setIgnorarBloqueioTemporario(true);
-
-  try {
-    const permissao = await ImagePicker.requestMediaLibraryPermissionsAsync();
-
-    if (!permissao.granted) {
-      Alert.alert(
-        'Permissão necessária',
-        'Para escolher uma foto de perfil, permita o acesso às imagens do aparelho.',
-      );
-      return;
-    }
-
-    const resultado = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Images,
-      allowsEditing: true,
-      aspect: [1, 1],
-      quality: 0.8,
-    });
-
-    if (resultado.canceled || !resultado.assets?.[0]?.uri) {
-      return;
-    }
-
-    await salvarFotoPerfil(resultado.assets[0].uri);
-  } catch (error: any) {
-    Alert.alert(
-      'Erro ao escolher foto',
-      error?.message || 'Não foi possível salvar a foto de perfil.',
-    );
-  } finally {
-    setTimeout(() => {
-      setIgnorarBloqueioTemporario(false);
-    }, 1500);
-  }
-}
-async function tirarFotoNaHora() {
-  setIgnorarBloqueioTemporario(true);
-
-  try {
-    const permissao = await ImagePicker.requestCameraPermissionsAsync();
-
-    if (!permissao.granted) {
-      Alert.alert(
-        'Permissão necessária',
-        'Para tirar uma foto de perfil, permita o acesso à câmera.',
-      );
-      return;
-    }
-
-    const resultado = await ImagePicker.launchCameraAsync({
-      allowsEditing: true,
-      aspect: [1, 1],
-      quality: 0.8,
-    });
-
-    if (resultado.canceled || !resultado.assets?.[0]?.uri) {
-      return;
-    }
-
-    await salvarFotoPerfil(resultado.assets[0].uri);
-  } catch (error: any) {
-    Alert.alert(
-      'Erro ao tirar foto',
-      error?.message || 'Não foi possível salvar a foto de perfil.',
-    );
-  } finally {
-    setTimeout(() => {
-      setIgnorarBloqueioTemporario(false);
-    }, 1500);
-  }
-}
-  const municipio =
-    formatarTexto(
-      (profissional as any)?.municipioNome ??
-      (profissional as any)?.nomeMunicipio ??
-      (profissional as any)?.municipio ??
-      (profissional as any)?.municipioSlug,
-    );
 
   const nome = formatarTexto(profissional?.nome, 'Usuário');
 
+  const municipio = formatarTexto(
+    (profissional as any)?.municipioNome ??
+      (profissional as any)?.nomeMunicipio ??
+      (profissional as any)?.municipio ??
+      formatarMunicipioSlug(municipioSlug),
+  );
+
   const equipe = formatarTexto(
     (profissional as any)?.equipeNome ??
-    (profissional as any)?.nomeEquipe ??
-    (profissional as any)?.equipe ??
-    profissional?.ine,
+      (profissional as any)?.nomeEquipe ??
+      (profissional as any)?.equipe ??
+      equipeStore?.nome ??
+      equipeStore?.descricao ??
+      profissional?.ine ??
+      profissional?.equipeId,
   );
 
   const unidade = formatarTexto(
     (profissional as any)?.unidadeNome ??
-    (profissional as any)?.nomeUnidade ??
-    (profissional as any)?.unidade ??
-    profissional?.cnes,
+      (profissional as any)?.nomeUnidade ??
+      (profissional as any)?.unidade ??
+      unidadeStore?.nome ??
+      unidadeStore?.descricao ??
+      profissional?.cnes ??
+      profissional?.unidadeId,
   );
 
-  const cbo = formatarTexto(
-    (profissional as any)?.cboDescricao ??
+ const cboDescricao = formatarTexto(
+  (profissional as any)?.cboDescricao ??
     (profissional as any)?.cbo_descricao ??
     (profissional as any)?.descricaoCbo ??
+    (profissional as any)?.descricao_cbo ??
     (profissional as any)?.cboNome ??
     (profissional as any)?.nomeCbo,
-  );
+  '',
+);
+
+const cboCodigo = formatarTexto(profissional?.cboCodigo, '');
+
+const cbo =
+  cboDescricao && cboCodigo
+    ? `${cboDescricao} (${cboCodigo})`
+    : cboDescricao || cboCodigo || 'Não informado';
+
+  async function salvarFotoPerfil(uri: string) {
+    try {
+      const extensaoOriginal = uri.split('.').pop()?.split('?')[0];
+
+      const extensao =
+        extensaoOriginal && extensaoOriginal.length <= 5
+          ? extensaoOriginal
+          : 'jpg';
+
+      const nomeArquivo = `foto-perfil-${Date.now()}.${extensao}`;
+      const destinoUri = `${FileSystem.documentDirectory}${nomeArquivo}`;
+
+      await FileSystem.copyAsync({
+        from: uri,
+        to: destinoUri,
+      });
+
+      setFotoPerfilUri(destinoUri);
+    } catch (error: any) {
+      console.log('[PERFIL][FOTO] Erro ao salvar foto:', error);
+
+      Alert.alert(
+        'Erro ao salvar foto',
+        error?.message || 'Não foi possível salvar a foto de perfil.',
+      );
+    }
+  }
+
+  async function escolherFotoDaGaleria() {
+    setIgnorarBloqueioTemporario(true);
+
+    try {
+      const permissao = await ImagePicker.requestMediaLibraryPermissionsAsync();
+
+      if (!permissao.granted) {
+        Alert.alert(
+          'Permissão necessária',
+          'Para escolher uma foto de perfil, permita o acesso às imagens do aparelho.',
+        );
+        return;
+      }
+
+      const resultado = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsEditing: true,
+        aspect: [1, 1],
+        quality: 0.8,
+      });
+
+      if (resultado.canceled || !resultado.assets?.[0]?.uri) {
+        return;
+      }
+
+      await salvarFotoPerfil(resultado.assets[0].uri);
+    } catch (error: any) {
+      Alert.alert(
+        'Erro ao escolher foto',
+        error?.message || 'Não foi possível salvar a foto de perfil.',
+      );
+    } finally {
+      setTimeout(() => {
+        setIgnorarBloqueioTemporario(false);
+      }, 1500);
+    }
+  }
+
+  async function tirarFotoNaHora() {
+    setIgnorarBloqueioTemporario(true);
+
+    try {
+      const permissao = await ImagePicker.requestCameraPermissionsAsync();
+
+      if (!permissao.granted) {
+        Alert.alert(
+          'Permissão necessária',
+          'Para tirar uma foto de perfil, permita o acesso à câmera.',
+        );
+        return;
+      }
+
+      const resultado = await ImagePicker.launchCameraAsync({
+        allowsEditing: true,
+        aspect: [1, 1],
+        quality: 0.8,
+      });
+
+      if (resultado.canceled || !resultado.assets?.[0]?.uri) {
+        return;
+      }
+
+      await salvarFotoPerfil(resultado.assets[0].uri);
+    } catch (error: any) {
+      Alert.alert(
+        'Erro ao tirar foto',
+        error?.message || 'Não foi possível salvar a foto de perfil.',
+      );
+    } finally {
+      setTimeout(() => {
+        setIgnorarBloqueioTemporario(false);
+      }, 1500);
+    }
+  }
+
+  function handleSelecionarFoto() {
+    if (Platform.OS === 'ios') {
+      ActionSheetIOS.showActionSheetWithOptions(
+        {
+          options: ['Cancelar', 'Tirar foto', 'Escolher da galeria'],
+          cancelButtonIndex: 0,
+        },
+        (buttonIndex) => {
+          if (buttonIndex === 1) {
+            tirarFotoNaHora();
+          }
+
+          if (buttonIndex === 2) {
+            escolherFotoDaGaleria();
+          }
+        },
+      );
+
+      return;
+    }
+
+    Alert.alert(
+      'Foto de perfil',
+      'Como você deseja alterar sua foto?',
+      [
+        {
+          text: 'Tirar foto',
+          onPress: tirarFotoNaHora,
+        },
+        {
+          text: 'Escolher da galeria',
+          onPress: escolherFotoDaGaleria,
+        },
+        {
+          text: 'Cancelar',
+          style: 'cancel',
+        },
+      ],
+    );
+  }
 
   function handleToggleTheme() {
     Appearance.setColorScheme(modo === 'light' ? 'dark' : 'light');
@@ -192,6 +274,7 @@ async function tirarFotoNaHora() {
   function handleAbrirTutorial() {
     router.push('/(tabs)/home?reiniciarTutorial=1' as any);
   }
+
   function handleLogout() {
     Alert.alert(
       'Sair da conta',
@@ -213,46 +296,7 @@ async function tirarFotoNaHora() {
       ],
     );
   }
-  function handleSelecionarFoto() {
-  if (Platform.OS === 'ios') {
-    ActionSheetIOS.showActionSheetWithOptions(
-      {
-        options: ['Cancelar', 'Tirar foto', 'Escolher da galeria'],
-        cancelButtonIndex: 0,
-      },
-      (buttonIndex) => {
-        if (buttonIndex === 1) {
-          tirarFotoNaHora();
-        }
 
-        if (buttonIndex === 2) {
-          escolherFotoDaGaleria();
-        }
-      },
-    );
-
-    return;
-  }
-
-  Alert.alert(
-    'Foto de perfil',
-    'Como você deseja alterar sua foto?',
-    [
-      {
-        text: 'Tirar foto',
-        onPress: tirarFotoNaHora,
-      },
-      {
-        text: 'Escolher da galeria',
-        onPress: escolherFotoDaGaleria,
-      },
-      {
-        text: 'Cancelar',
-        style: 'cancel',
-      },
-    ],
-  );
-}
   return (
     <SafeAreaView style={styles.safe}>
       <ScrollView
@@ -276,6 +320,7 @@ async function tirarFotoNaHora() {
               <Ionicons name="camera-outline" size={16} color="#FFFFFF" />
             </View>
           </TouchableOpacity>
+
           <TouchableOpacity onPress={handleSelecionarFoto} activeOpacity={0.85}>
             <Text style={styles.trocarFotoText}>
               {fotoPerfilUri ? 'Trocar foto de perfil' : 'Adicionar foto de perfil'}
@@ -501,10 +546,39 @@ const getStyles = (theme: AppTheme) =>
       elevation: 4,
     },
 
+    avatarImage: {
+      width: '100%',
+      height: '100%',
+      borderRadius: 30,
+    },
+
     avatarText: {
       color: '#FFFFFF',
       fontSize: 28,
       fontWeight: '900',
+    },
+
+    avatarCamera: {
+      position: 'absolute',
+      right: -2,
+      bottom: -2,
+      width: 30,
+      height: 30,
+      borderRadius: 15,
+      backgroundColor: theme.primary,
+      borderWidth: 2,
+      borderColor: theme.card,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+
+    trocarFotoText: {
+      marginTop: 8,
+      marginBottom: 10,
+      fontSize: 13,
+      fontWeight: '800',
+      color: theme.primary,
+      textAlign: 'center',
     },
 
     nome: {
@@ -573,33 +647,6 @@ const getStyles = (theme: AppTheme) =>
       fontWeight: '600',
       color: theme.textMuted,
       lineHeight: 17,
-    },
-    avatarImage: {
-      width: '100%',
-      height: '100%',
-      borderRadius: 30,
-    },
-
-    avatarCamera: {
-      position: 'absolute',
-      right: -2,
-      bottom: -2,
-      width: 30,
-      height: 30,
-      borderRadius: 15,
-      backgroundColor: theme.primary,
-      borderWidth: 2,
-      borderColor: theme.card,
-      alignItems: 'center',
-      justifyContent: 'center',
-    },
-
-    trocarFotoText: {
-      marginTop: 8,
-      fontSize: 13,
-      fontWeight: '800',
-      color: theme.primary,
-      textAlign: 'center',
     },
 
     infoList: {

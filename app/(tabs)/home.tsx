@@ -29,6 +29,7 @@ import { obterTenantConfig } from '../../src/utils/tenant-storage';
 import {
   podeSincronizar,
   podeUsarModulo,
+  podeUsarModuloComPermissao,
   TENANT_MODULES,
 } from '../../src/utils/tenant-permissons';
 
@@ -192,7 +193,7 @@ export default function HomeScreen() {
   const fotoPerfilUri = useProfileStore((state) => state.fotoPerfilUri);
   const { width } = useWindowDimensions();
   const isTablet = width >= 768;
-  const { profissional } = useAuthStore();
+  const { profissional, permissoesApp } = useAuthStore();
   const { sincronizando, setSincronizando, setUltimoSync, ultimoSync } = useSyncStore();
 
   const [pendentesGeral, setPendentesGeral] = useState(0);
@@ -385,6 +386,25 @@ export default function HomeScreen() {
     return `${partes[0].charAt(0)}${partes[partes.length - 1].charAt(0)}`.toUpperCase();
   }
 
+  function podeMostrarModulo(modulo: (typeof TENANT_MODULES)[keyof typeof TENANT_MODULES]) {
+    // Indicadores ainda não tem menu ASP mapeado; por enquanto continua usando só o tenant.
+    if (modulo === TENANT_MODULES.INDICADORES) {
+      return podeUsarModulo(tenantConfig, modulo);
+    }
+
+    // Vacinação também ainda não está no endpoint de permissoes-app.
+    if (modulo === TENANT_MODULES.VACINACAO) {
+      return podeUsarModulo(tenantConfig, modulo);
+    }
+
+    return podeUsarModuloComPermissao(
+      tenantConfig,
+      permissoesApp,
+      modulo,
+      'acessa',
+    );
+  }
+
   const fichasEsf = [
     {
       modulo: TENANT_MODULES.VISITA_DOMICILIAR,
@@ -459,7 +479,7 @@ export default function HomeScreen() {
       rota: '/fichas/marcador-consumo-alimentar-lista',
       pendentes: pendentesPorFicha['marcadores_consumo'],
     },
-  ].filter((item) => podeUsarModulo(tenantConfig, item.modulo));
+  ].filter((item) => podeMostrarModulo(item.modulo));
 
   const outrosModulos = [
     {
@@ -489,7 +509,7 @@ export default function HomeScreen() {
       rota: '/(tabs)/indicadores',
       tutorialId: 'indicadores' as TutorialTarget,
     },
-  ].filter((item) => podeUsarModulo(tenantConfig, item.modulo));
+  ].filter((item) => podeMostrarModulo(item.modulo));
 
   return (
     <SafeAreaView style={styles.safe}>

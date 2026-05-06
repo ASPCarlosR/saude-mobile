@@ -10,6 +10,7 @@ import { AtendimentoDomiciliarHandler } from './atendimento-domiciliar.handler';
 import { AtividadeColetivaHandler } from './atividade-coletiva.handler';
 import { ElegibilidadeHandler } from './elegibilidade.handler';
 import { ConsumoAlimentarHandler } from './consumo-alimentar.handler';
+import { APP_PERMISSOES_MAP } from '../../modules/app-permissoes.map';
 
 type FiltrosDownSync = {
   profissionalId?: number;
@@ -2299,7 +2300,83 @@ export class SyncService {
       evfamHabilitado: riscoFamiliarNormalizado === 'P',
     };
   }
+  async obterPermissoesApp(slug: string, usuarioId: number) {
+  const db = await this.getDb(slug);
 
+  const appMenus = [
+    { modulo: 'cadastro_individual', aspmenuid: 110091 },
+    { modulo: 'agendamento', aspmenuid: 110146 },
+    { modulo: 'transporte', aspmenuid: 110204 },
+    { modulo: 'cadastro_domiciliar', aspmenuid: 110381 },
+    { modulo: 'visita_domiciliar', aspmenuid: 110395 },
+    { modulo: 'atividade_coletiva', aspmenuid: 110396 },
+    { modulo: 'atividade_coletiva', aspmenuid: 110465 },
+    { modulo: 'marcador_consumo_alimentar', aspmenuid: 110440 },
+    { modulo: 'avaliacao_elegibilidade', aspmenuid: 110441 },
+    { modulo: 'atendimento_domiciliar', aspmenuid: 110444 },
+  ];
+
+  const valuesSql = appMenus
+    .map((_, index) => `($${index * 2 + 1}::text, $${index * 2 + 2}::int4)`)
+    .join(', ');
+
+  const params = appMenus.flatMap((item) => [item.modulo, item.aspmenuid]);
+  const usuarioParamIndex = params.length + 1;
+
+  const rows = await db.query(
+    `
+    WITH app_menus AS (
+      SELECT *
+      FROM (VALUES ${valuesSql}) AS t(modulo, aspmenuid)
+    ),
+    papeis_validos AS (
+      SELECT asppapelusuarioid
+      FROM public.aspusuariologinpapel
+      WHERE usuarioid = $${usuarioParamIndex}
+        AND (
+          aspusuariologinpapeldataexp IS NULL
+          OR aspusuariologinpapeldataexp <= DATE '1900-01-01'
+          OR aspusuariologinpapeldataexp >= CURRENT_DATE
+        )
+    )
+    SELECT
+      am.modulo,
+      COALESCE(BOOL_OR(p.asppapelusuariopermacessa), false) AS acessa,
+      COALESCE(BOOL_OR(p.asppapelusuariopermaltera), false) AS altera,
+      COALESCE(BOOL_OR(p.asppapelusuarioperminclui), false) AS inclui,
+      COALESCE(BOOL_OR(p.asppapelusuariopermexclui), false) AS exclui
+    FROM app_menus am
+    LEFT JOIN public.asppapelusuariopermissao p
+      ON p.aspmenuid = am.aspmenuid
+     AND p.asppapelusuarioid IN (
+       SELECT asppapelusuarioid FROM papeis_validos
+     )
+    GROUP BY am.modulo
+    ORDER BY am.modulo
+    `,
+    [...params, usuarioId]
+  );
+
+  this.logger.log(
+    '[PERMISSOES_APP] usuarioId=' +
+      usuarioId +
+      ' slug=' +
+      slug +
+      ' rows=' +
+      JSON.stringify(rows)
+  );
+
+  return rows.reduce((acc: any, row: any) => {
+    acc[row.modulo] = {
+      acessa: Boolean(row.acessa),
+      altera: Boolean(row.altera),
+      inclui: Boolean(row.inclui),
+      exclui: Boolean(row.exclui),
+    };
+
+    return acc;
+  }, {});
+}
   async buscarEnderecosDne(termo: string, municipioSlug: string) {
     const db = await this.getDb(municipioSlug);
 

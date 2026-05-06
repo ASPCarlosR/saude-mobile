@@ -67,6 +67,7 @@ export async function sincronizar() {
     equipeId: profissional?.equipeId,
     microArea: profissional?.microArea,
     cboCodigo: profissional?.cboCodigo,
+    cboDescricao: profissional?.cboDescricao,
     tokenExiste: !!token,
     tokenPreview: typeof token === 'string' ? `${token.slice(0, 20)}...` : '(token não string)'
   });

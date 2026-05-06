@@ -114,12 +114,33 @@ export default function RootLayout() {
     router,
   ]);
 
-  useEffect(() => {
-    if (Platform.OS === 'android') {
-      NavigationBar.setPositionAsync('absolute').catch(() => { });
-      NavigationBar.setVisibilityAsync('hidden').catch(() => { });
+useEffect(() => {
+  if (Platform.OS !== 'android') return;
+
+  async function esconderNavigationBar() {
+    try {
+      await NavigationBar.setPositionAsync('absolute');
+      await NavigationBar.setBehaviorAsync('overlay-swipe');
+      await NavigationBar.setVisibilityAsync('hidden');
+    } catch (error) {
+      console.log('[NAVIGATION_BAR] Erro ao esconder:', error);
     }
-  }, []);
+  }
+
+  esconderNavigationBar();
+
+  const subscription = AppState.addEventListener('change', (nextAppState) => {
+    if (nextAppState === 'active') {
+      setTimeout(() => {
+        esconderNavigationBar();
+      }, 300);
+    }
+  });
+
+  return () => {
+    subscription.remove();
+  };
+}, []);
 
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>

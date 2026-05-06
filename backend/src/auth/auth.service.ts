@@ -35,6 +35,7 @@ export class AuthService {
         c.sdunidadeid AS "unidadeId",
         u.sdunidadenom AS "unidadeNome",
         c.sdsuscboid AS "cboCodigo",
+        SS.sdsuscbodescricao as "cboDescricao",
         ee.sdequipemedicaid AS "equipeId",
         ee.sdequipemedicacodigocnes AS "ine",
         s.sdagentesmicroarea AS "microArea"
@@ -43,6 +44,7 @@ export class AuthService {
       INNER JOIN sdunidade u ON u.sdunidadeid = c.sdunidadeid
       INNER JOIN sdequipemedicaagentes s on s.sdagentesid = p.sdprofissionalid
       LEFT JOIN SDEQUIPEMEDICA EE on EE.SDEQUIPEMEDICAID = S.sdequipemedicaid
+      inner join SDSUSCBO SS on SS.SDSUSCBOID = C.sdsuscboid
       WHERE p.sdprofissionalloginid = $1`,
       [usuario.id],
     );

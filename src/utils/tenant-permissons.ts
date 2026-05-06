@@ -108,3 +108,30 @@ export function obterPermissaoDaRota(
   const normalized = segments.join('/');
   return ROUTE_PERMISSION_MAP[normalized] ?? null;
 }
+export type AcaoPermissaoApp = 'acessa' | 'altera' | 'inclui' | 'exclui';
+
+export type PermissaoAppModulo = {
+  acessa: boolean;
+  altera: boolean;
+  inclui: boolean;
+  exclui: boolean;
+};
+
+export type PermissoesApp = Record<string, PermissaoAppModulo>;
+
+export function temPermissaoApp(
+  permissoesApp: PermissoesApp | null | undefined,
+  modulo: TenantModuleKey,
+  acao: AcaoPermissaoApp = 'acessa',
+): boolean {
+  return Boolean(permissoesApp?.[modulo]?.[acao]);
+}
+
+export function podeUsarModuloComPermissao(
+  config: TenantConfigPublica | null | undefined,
+  permissoesApp: PermissoesApp | null | undefined,
+  modulo: TenantModuleKey,
+  acao: AcaoPermissaoApp = 'acessa',
+): boolean {
+  return podeUsarModulo(config, modulo) && temPermissaoApp(permissoesApp, modulo, acao);
+}

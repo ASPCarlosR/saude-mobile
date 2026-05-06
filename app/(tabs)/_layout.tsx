@@ -5,19 +5,40 @@ import { useColorScheme } from 'react-native';
 import { Colors } from '../fichas/colors';
 import { TenantConfigPublica } from '../../src/types/tentant';
 import { obterTenantConfig } from '../../src/utils/tenant-storage';
-import { podeUsarModulo, TENANT_MODULES } from '../../src/utils/tenant-permissons';
+import {
+  podeUsarModulo,
+  podeUsarModuloComPermissao,
+  TENANT_MODULES,
+} from '../../src/utils/tenant-permissons';
+import { useAuthStore } from '../../src/store/index';
 
 export default function TabsLayout() {
   const theme = Colors[useColorScheme() ?? 'light'];
   const [tenantConfig, setTenantConfig] = useState<TenantConfigPublica | null>(null);
+  const permissoesApp = useAuthStore((state) => state.permissoesApp);
 
   useEffect(() => {
     obterTenantConfig().then(setTenantConfig).catch(() => setTenantConfig(null));
   }, []);
 
-  const podeVerIndicadores = podeUsarModulo(tenantConfig, TENANT_MODULES.INDICADORES);
-  const podeVerTransporte = podeUsarModulo(tenantConfig, TENANT_MODULES.TRANSPORTE);
-  const podeVerAgendamento = podeUsarModulo(tenantConfig, TENANT_MODULES.AGENDAMENTO);
+  const podeVerIndicadores = podeUsarModulo(
+    tenantConfig,
+    TENANT_MODULES.INDICADORES,
+  );
+
+  const podeVerTransporte = podeUsarModuloComPermissao(
+    tenantConfig,
+    permissoesApp,
+    TENANT_MODULES.TRANSPORTE,
+    'acessa',
+  );
+
+  const podeVerAgendamento = podeUsarModuloComPermissao(
+    tenantConfig,
+    permissoesApp,
+    TENANT_MODULES.AGENDAMENTO,
+    'acessa',
+  );
 
   return (
     <Tabs
@@ -47,6 +68,7 @@ export default function TabsLayout() {
           ),
         }}
       />
+
       <Tabs.Screen
         name="indicadores"
         options={{
@@ -57,6 +79,7 @@ export default function TabsLayout() {
           ),
         }}
       />
+
       <Tabs.Screen
         name="transporte"
         options={{
@@ -67,6 +90,7 @@ export default function TabsLayout() {
           ),
         }}
       />
+
       <Tabs.Screen
         name="agendamento"
         options={{
@@ -77,7 +101,8 @@ export default function TabsLayout() {
           ),
         }}
       />
-        <Tabs.Screen
+
+      <Tabs.Screen
         name="perfil"
         options={{
           title: 'Perfil',

@@ -168,24 +168,24 @@ export class SyncService {
   }
 
   async buscarPessoas(
-  usuarioId: number,
-  municipioSlug: string,
-  filtros?: {
-    profissionalId?: number;
-    equipeId?: number;
-    unidadeId?: number;
-    microArea?: string;
-  }
-) {
-  const db = await this.getDb(municipioSlug);
+    usuarioId: number,
+    municipioSlug: string,
+    filtros?: {
+      profissionalId?: number;
+      equipeId?: number;
+      unidadeId?: number;
+      microArea?: string;
+    }
+  ) {
+    const db = await this.getDb(municipioSlug);
 
-  const profissionalId = Number(filtros?.profissionalId || 0);
-  const equipeId = Number(filtros?.equipeId || 0);
-  const unidadeId = Number(filtros?.unidadeId || 0);
-  const microArea = String(filtros?.microArea || '').trim();
+    const profissionalId = Number(filtros?.profissionalId || 0);
+    const equipeId = Number(filtros?.equipeId || 0);
+    const unidadeId = Number(filtros?.unidadeId || 0);
+    const microArea = String(filtros?.microArea || '').trim();
 
-  this.logger.log(
-    '[SYNC][PESSOAS] Filtros recebidos: ' +
+    this.logger.log(
+      '[SYNC][PESSOAS] Filtros recebidos: ' +
       JSON.stringify({
         usuarioId,
         municipioSlug,
@@ -194,10 +194,10 @@ export class SyncService {
         unidadeId,
         microArea,
       })
-  );
+    );
 
-  const dados = await db.query(
-    `
+    const dados = await db.query(
+      `
     SELECT p.*,
            p.sdpessoaid as "intId",
            COALESCE(p.sdpessoaprenome, p.sdpessoanom) as "nome",
@@ -217,32 +217,32 @@ export class SyncService {
      ORDER BY COALESCE(p.sdpessoaprenome, p.sdpessoanom), p.sdpessoaid
      LIMIT 5000
     `,
-    [profissionalId, equipeId, unidadeId, microArea]
-  );
+      [profissionalId, equipeId, unidadeId, microArea]
+    );
 
-  this.logger.log(`[SYNC][PESSOAS] Total retornado: ${dados.length}`);
+    this.logger.log(`[SYNC][PESSOAS] Total retornado: ${dados.length}`);
 
-  return { status: 'S', dados };
-}
-  async buscarDomicilios(
-  usuarioId: number,
-  municipioSlug: string,
-  filtros?: {
-    profissionalId?: number;
-    equipeId?: number;
-    unidadeId?: number;
-    microArea?: string;
+    return { status: 'S', dados };
   }
-) {
-  const db = await this.getDb(municipioSlug);
+  async buscarDomicilios(
+    usuarioId: number,
+    municipioSlug: string,
+    filtros?: {
+      profissionalId?: number;
+      equipeId?: number;
+      unidadeId?: number;
+      microArea?: string;
+    }
+  ) {
+    const db = await this.getDb(municipioSlug);
 
-  const profissionalId = Number(filtros?.profissionalId || 0);
-  const equipeId = Number(filtros?.equipeId || 0);
-  const unidadeId = Number(filtros?.unidadeId || 0);
-  const microArea = String(filtros?.microArea || '').trim();
+    const profissionalId = Number(filtros?.profissionalId || 0);
+    const equipeId = Number(filtros?.equipeId || 0);
+    const unidadeId = Number(filtros?.unidadeId || 0);
+    const microArea = String(filtros?.microArea || '').trim();
 
-  this.logger.log(
-    '[SYNC][DOMICILIOS] Filtros recebidos: ' +
+    this.logger.log(
+      '[SYNC][DOMICILIOS] Filtros recebidos: ' +
       JSON.stringify({
         usuarioId,
         municipioSlug,
@@ -251,10 +251,10 @@ export class SyncService {
         unidadeId,
         microArea,
       })
-  );
+    );
 
-  const dados = await db.query(
-    `
+    const dados = await db.query(
+      `
     WITH domicilios_filtrados AS (
       SELECT DISTINCT d.*
         FROM sddomicilio d
@@ -325,13 +325,13 @@ export class SyncService {
              ON eq.sdequipemedicaid = d.sddomicilioequipeid
      ORDER BY d.sddomicilioid DESC
     `,
-    [profissionalId, equipeId, unidadeId, microArea]
-  );
+      [profissionalId, equipeId, unidadeId, microArea]
+    );
 
-  this.logger.log(`[SYNC][DOMICILIOS] Total retornado: ${dados.length}`);
+    this.logger.log(`[SYNC][DOMICILIOS] Total retornado: ${dados.length}`);
 
-  return { status: 'S', dados };
-}
+    return { status: 'S', dados };
+  }
 
   async buscarViagens(usuarioId: number, filtros: any, municipioSlug: string) {
     const db = await this.getDb(municipioSlug);
@@ -1014,7 +1014,7 @@ export class SyncService {
       .filter(Boolean);
   }
 
-   async listarIndicadoresApsPendentes(profissionalId: number, municipioSlug: string) {
+  async listarIndicadoresApsPendentes(profissionalId: number, municipioSlug: string) {
     const db = await this.getDb(municipioSlug);
 
     const quadRows = await db.query(
@@ -2274,6 +2274,29 @@ export class SyncService {
       },
       totalPendentes: dados.reduce((acc, g) => acc + g.pacientes.length, 0),
       dados,
+    };
+  }
+
+  async obterParametroRiscoFamiliar(dataSource: DataSource): Promise<string | null> {
+    const resultado = await dataSource.query(`
+    SELECT sdparametropsfriscofamiliar
+    FROM public.sdparametrogeral
+    LIMIT 1
+  `);
+
+    return resultado?.[0]?.sdparametropsfriscofamiliar?.trim?.() ?? null;
+  }
+
+  async obterParametrosGerais(slug: string) {
+    const db = await this.getDb(slug);
+
+    const riscoFamiliar = await this.obterParametroRiscoFamiliar(db);
+    const riscoFamiliarNormalizado = riscoFamiliar?.trim().toUpperCase() ?? null;
+
+    return {
+      riscoFamiliar: riscoFamiliarNormalizado,
+      SDPARAMETROPSFRISCOFAMILIAR: riscoFamiliarNormalizado,
+      evfamHabilitado: riscoFamiliarNormalizado === 'P',
     };
   }
 

@@ -15,6 +15,7 @@ export class VisitaHandler {
   // ou /var/www/saude.projeto.smart/private/ (Linux)
   private readonly ASSINATURA_DIR = process.env.GENEXUS_FILES_DIR
     ?? path.join(process.cwd(), 'genexus-files', 'assinaturas');
+    
 
   async upsert(guid: string, dados: any, dataSource: DataSource): Promise<number> {
     const cleanGuid = guid.trim();
@@ -348,6 +349,14 @@ export class VisitaHandler {
         WHERE sdvisitadomiciliarid = $1`,
         [visitaId, ...params]
       );
+      await this.salvarEvfamDaVisita(dataSource, dados, {
+        unidadeId,
+        profId,
+        equipeId,
+        usuarioId,
+        data,
+      });
+
       return visitaId;
 
     } else {
@@ -406,7 +415,211 @@ export class VisitaHandler {
         RETURNING sdvisitadomiciliarid`,
         [cleanGuid, ...params]
       );
-      return result[0].sdvisitadomiciliarid;
+      const visitaId = result[0].sdvisitadomiciliarid;
+
+      await this.salvarEvfamDaVisita(dataSource, dados, {
+        unidadeId,
+        profId,
+        equipeId,
+        usuarioId,
+        data,
+      });
+
+      return visitaId;
     }
+  }
+
+  private obterEvfamDoPayload(dados: any): any | null {
+    const bruto =
+      dados?.SDVulnerabilidadeFamiliar ??
+      dados?.sdvulnerabilidadefamiliar ??
+      dados?.evfam ??
+      dados?.EVFAM ??
+      null;
+
+    if (!bruto) return null;
+
+    if (typeof bruto === 'string') {
+      try {
+        return JSON.parse(bruto);
+      } catch {
+        this.logger.warn('[EVFAM] Campo recebido como string, mas não é um JSON válido. Ignorando.');
+        return null;
+      }
+    }
+
+    return bruto;
+  }
+
+  private async salvarEvfamDaVisita(
+    dataSource: DataSource,
+    dados: any,
+    contexto: {
+      unidadeId: number | null;
+      profId: number | null;
+      equipeId: number | null;
+      usuarioId: number | null;
+      data: string | null;
+    },
+  ): Promise<void> {
+    const evfam = this.obterEvfamDoPayload(dados);
+
+    if (!evfam) return;
+
+    await this.salvarVulnerabilidadeFamiliar(dataSource, evfam, contexto);
+  }
+
+  private async obterParametroRiscoFamiliar(dataSource: DataSource): Promise<string | null> {
+    const resultado = await dataSource.query(`
+      SELECT sdparametropsfriscofamiliar
+      FROM public.sdparametrogeral
+      LIMIT 1
+    `);
+
+    const valor = resultado?.[0]?.sdparametropsfriscofamiliar;
+    return valor ? String(valor).trim().toUpperCase() : null;
+  }
+
+  private boolParaChar(valor: any): 'S' | 'N' {
+    return valor === true || valor === 'S' || valor === 's' || valor === 1 || valor === '1'
+      ? 'S'
+      : 'N';
+  }
+
+  private normalizarClassificacao(valor: any): 'B' | 'M' | 'A' {
+    const classificacao = String(valor ?? 'B').trim().toUpperCase();
+
+    if (classificacao === 'A' || classificacao === 'ALTA') return 'A';
+    if (classificacao === 'M' || classificacao === 'MEDIA' || classificacao === 'MÉDIA') return 'M';
+    return 'B';
+  }
+
+  private async salvarVulnerabilidadeFamiliar(
+    dataSource: DataSource,
+    evfam: any,
+    contexto: {
+      unidadeId: number | null;
+      profId: number | null;
+      equipeId: number | null;
+      usuarioId: number | null;
+      data: string | null;
+    },
+  ): Promise<void> {
+    if (!evfam) return;
+
+    const parametro = await this.obterParametroRiscoFamiliar(dataSource);
+
+    if (parametro !== 'P') {
+      this.logger.log('[EVFAM] Parâmetro SDPARAMETROPSFRISCOFAMILIAR diferente de P. Ignorando.');
+      return;
+    }
+
+    const sddomicilioid =
+      Number(evfam.sddomicilioid ?? evfam.SDDomicilioId ?? evfam.domicilioId ?? 0) || null;
+
+    const pessoaId =
+      Number(evfam.pessoaId ?? evfam.SDVulnerabilidadeFamiliarPessoaId ?? contexto.usuarioId ?? 0) || null;
+
+    const data =
+      evfam.data ??
+      evfam.SDVulnerabilidadeFamiliarData ??
+      contexto.data;
+
+    if (!sddomicilioid || !pessoaId || !data || !contexto.unidadeId || !contexto.profId) {
+      this.logger.warn('[EVFAM] Dados obrigatórios ausentes. Não foi possível salvar.', {
+        sddomicilioid,
+        pessoaId,
+        data,
+        unidadeId: contexto.unidadeId,
+        profId: contexto.profId,
+      });
+      return;
+    }
+
+    const existente = await dataSource.query(
+      `
+      SELECT sdvulnerabilidadefamiliarid
+      FROM public.sdvulnerabilidadefamiliar
+      WHERE sddomicilioid = $1
+        AND sdvulnerafamiliarpessoaid = $2
+        AND sdvulnerabilidadefamiliardata = $3
+        AND sdvulnerafamiliarprofid = $4
+      LIMIT 1
+      `,
+      [sddomicilioid, pessoaId, data, contexto.profId],
+    );
+
+    if (existente.length > 0) {
+      this.logger.log('[EVFAM] Registro já existente. Ignorando duplicidade.');
+      return;
+    }
+
+    await dataSource.query(
+      `
+      INSERT INTO public.sdvulnerabilidadefamiliar (
+        sddomicilioid,
+        sdvulnerabilidadefamiliardata,
+        sdvulnerafamiliarpessoaid,
+        sdvulnerafamiliarunidadeid,
+        sdvulnerafamiliarprofid,
+        sdvulnerafamiliarequipeid,
+        sdvulnerafamiliarsuspeitaviolencia,
+        sdvulnerabilidadefamiliarmotivo,
+        sdvulnerafamiliardificfinanc,
+        sdvulnerafamiliarfaltadinheiro,
+        sdvulnerafamiliardificalimento,
+        sdvulnerafamiliarmedicamento,
+        sdvulnerafamiliarvariosmedic,
+        sdvulnerafamiliarcuidadocontinuo,
+        sdvulnerafamiliardificatividade,
+        sdvulnerafamiliarajudasaude,
+        sdvulnerafamiliarmaeausente,
+        sdvulnerafamiliarpaiausente,
+        sdvulnerafamiliarabandonofamilia,
+        sdvulnerafamiliarpessoaviolenta,
+        sdvulnerafamiliarvitimaviolencia,
+        sdvulnerafamiliarviolencia,
+        sdvulnerafamiliarpontuacao,
+        sdvulnerafamiliarclassificacao
+      )
+      VALUES (
+        $1, $2, $3, $4, $5, $6,
+        $7, $8, $9, $10, $11, $12,
+        $13, $14, $15, $16, $17, $18,
+        $19, $20, $21, $22, $23, $24
+      )
+      `,
+      [
+        sddomicilioid,
+        data,
+        pessoaId,
+        contexto.unidadeId,
+        contexto.profId,
+        contexto.equipeId ?? null,
+
+        this.boolParaChar(evfam.suspeitaViolencia),
+        Number(evfam.motivo ?? 1),
+
+        this.boolParaChar(evfam.dificFinanc),
+        this.boolParaChar(evfam.faltaDinheiro),
+        this.boolParaChar(evfam.dificAlimento),
+        this.boolParaChar(evfam.medicamento),
+        this.boolParaChar(evfam.variosMedic),
+        this.boolParaChar(evfam.cuidadoContinuo),
+        this.boolParaChar(evfam.dificAtividade),
+        this.boolParaChar(evfam.ajudaSaude),
+        this.boolParaChar(evfam.maeAusente),
+        this.boolParaChar(evfam.paiAusente),
+        this.boolParaChar(evfam.abandonoFamilia),
+        this.boolParaChar(evfam.pessoaViolenta),
+        this.boolParaChar(evfam.vitimaViolencia),
+        this.boolParaChar(evfam.violencia),
+
+        evfam.pontuacao ?? null,
+        this.normalizarClassificacao(evfam.classificacao),
+      ],
+    );
+
+    this.logger.log('[EVFAM] Vulnerabilidade familiar salva com sucesso.');
   }
 }

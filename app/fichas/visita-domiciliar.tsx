@@ -123,6 +123,109 @@ interface MoradorRecebidoParam {
   ehResponsavel?: boolean;
 }
 
+type SimNao = 'S' | 'N';
+type ClassificacaoEvfam = 'B' | 'M' | 'A';
+
+interface FormEvfam {
+  realizado: boolean;
+  pessoaId: string;
+  suspeitaViolencia: SimNao;
+  motivo: string;
+  dificFinanc: SimNao;
+  faltaDinheiro: SimNao;
+  dificAlimento: SimNao;
+  medicamento: SimNao;
+  variosMedic: SimNao;
+  cuidadoContinuo: SimNao;
+  dificAtividade: SimNao;
+  ajudaSaude: SimNao;
+  maeAusente: SimNao;
+  paiAusente: SimNao;
+  abandonoFamilia: SimNao;
+  pessoaViolenta: SimNao;
+  vitimaViolencia: SimNao;
+  violencia: SimNao;
+  pontuacao: number;
+  classificacao: ClassificacaoEvfam;
+}
+
+const EVFAM_INICIAL: FormEvfam = {
+  realizado: false,
+  pessoaId: '',
+  suspeitaViolencia: 'N',
+  motivo: '1',
+  dificFinanc: 'N',
+  faltaDinheiro: 'N',
+  dificAlimento: 'N',
+  medicamento: 'N',
+  variosMedic: 'N',
+  cuidadoContinuo: 'N',
+  dificAtividade: 'N',
+  ajudaSaude: 'N',
+  maeAusente: 'N',
+  paiAusente: 'N',
+  abandonoFamilia: 'N',
+  pessoaViolenta: 'N',
+  vitimaViolencia: 'N',
+  violencia: 'N',
+  pontuacao: 0,
+  classificacao: 'B',
+};
+
+const CAMPOS_PONTUACAO_EVFAM: (keyof FormEvfam)[] = [
+  'suspeitaViolencia',
+  'dificFinanc',
+  'faltaDinheiro',
+  'dificAlimento',
+  'medicamento',
+  'variosMedic',
+  'cuidadoContinuo',
+  'dificAtividade',
+  'ajudaSaude',
+  'maeAusente',
+  'paiAusente',
+  'abandonoFamilia',
+  'pessoaViolenta',
+  'vitimaViolencia',
+  'violencia',
+];
+
+const LABELS_EVFAM: Record<string, string> = {
+  suspeitaViolencia: 'Suspeita de violência',
+  dificFinanc: 'Dificuldade financeira',
+  faltaDinheiro: 'Falta dinheiro para necessidades básicas',
+  dificAlimento: 'Dificuldade de acesso a alimento',
+  medicamento: 'Dificuldade com medicamentos',
+  variosMedic: 'Uso de vários medicamentos',
+  cuidadoContinuo: 'Precisa de cuidado contínuo',
+  dificAtividade: 'Dificuldade nas atividades diárias',
+  ajudaSaude: 'Necessita de ajuda para cuidado em saúde',
+  maeAusente: 'Mãe ausente',
+  paiAusente: 'Pai ausente',
+  abandonoFamilia: 'Abandono familiar',
+  pessoaViolenta: 'Pessoa violenta no domicílio',
+  vitimaViolencia: 'Vítima de violência',
+  violencia: 'Violência confirmada/relatada',
+};
+
+function calcularPontuacaoEvfam(evfam: FormEvfam) {
+  return CAMPOS_PONTUACAO_EVFAM.reduce((total, campo) => {
+    return total + (evfam[campo] === 'S' ? 1 : 0);
+  }, 0);
+}
+
+function calcularClassificacaoEvfam(pontuacao: number): ClassificacaoEvfam {
+  if (pontuacao >= 8) return 'A';
+  if (pontuacao >= 4) return 'M';
+  return 'B';
+}
+
+function textoClassificacaoEvfam(classificacao: ClassificacaoEvfam) {
+  if (classificacao === 'A') return 'Alta vulnerabilidade';
+  if (classificacao === 'M') return 'Média vulnerabilidade';
+  return 'Baixa vulnerabilidade';
+}
+
 type CampoCondicaoVisita =
   | 'gestante'
   | 'puerpera'
@@ -461,6 +564,155 @@ function RadioPillGroup({ label, value, onChange, opcoes }: any) {
   );
 }
 
+function EvfamModal({
+  visivel,
+  moradores,
+  valor,
+  onSalvar,
+  onFechar,
+}: {
+  visivel: boolean;
+  moradores: EstadoMorador[];
+  valor: FormEvfam;
+  onSalvar: (evfam: FormEvfam) => void;
+  onFechar: () => void;
+}) {
+  const theme = Colors[useColorScheme() ?? 'light'];
+  const styles = getStyles(theme);
+  const [rascunho, setRascunho] = useState<FormEvfam>(valor);
+
+  useEffect(() => {
+    const pessoaPadrao = valor.pessoaId || moradores[0]?.id || '';
+    setRascunho({ ...EVFAM_INICIAL, ...valor, pessoaId: pessoaPadrao });
+  }, [visivel, valor, moradores]);
+
+  const alterarCampo = (campo: keyof FormEvfam, novoValor: any) => {
+    setRascunho((prev) => {
+      const atualizado = { ...prev, [campo]: novoValor };
+      const pontuacao = calcularPontuacaoEvfam(atualizado);
+      return {
+        ...atualizado,
+        pontuacao,
+        classificacao: calcularClassificacaoEvfam(pontuacao),
+      };
+    });
+  };
+
+  const salvar = () => {
+    if (moradores.length > 0 && !rascunho.pessoaId) {
+      Alert.alert('Atenção', 'Selecione a pessoa de referência do EVFAM.');
+      return;
+    }
+
+    const pontuacao = calcularPontuacaoEvfam(rascunho);
+    onSalvar({
+      ...rascunho,
+      realizado: true,
+      pontuacao,
+      classificacao: calcularClassificacaoEvfam(pontuacao),
+    });
+  };
+
+  return (
+    <Modal visible={visivel} transparent animationType="slide" onRequestClose={onFechar}>
+      <View style={styles.modalOverlay}>
+        <View style={styles.modalCardEvfam}>
+          <View style={styles.modalHeaderEvfam}>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.modalTituloEvfam}>EVFAM</Text>
+              <Text style={styles.modalSubtituloEvfam}>Escala de Vulnerabilidade Familiar</Text>
+            </View>
+
+            <TouchableOpacity style={styles.modalCloseBtn} onPress={onFechar}>
+              <Ionicons name="close" size={22} color={theme.textMuted} />
+            </TouchableOpacity>
+          </View>
+
+          <ScrollView showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
+            {moradores.length > 0 && (
+              <View style={styles.evfamBloco}>
+                <Text style={styles.campoLabel}>Pessoa de referência</Text>
+                {moradores.map((m) => (
+                  <TouchableOpacity
+                    key={m.id}
+                    style={[styles.evfamPessoaItem, rascunho.pessoaId === m.id && styles.evfamPessoaItemOn]}
+                    onPress={() => alterarCampo('pessoaId', m.id)}
+                    activeOpacity={0.85}
+                  >
+                    <Ionicons
+                      name={rascunho.pessoaId === m.id ? 'radio-button-on' : 'radio-button-off'}
+                      size={18}
+                      color={rascunho.pessoaId === m.id ? theme.primary : theme.textMuted}
+                    />
+                    <View style={{ flex: 1 }}>
+                      <Text style={styles.evfamPessoaNome}>{m.nome}</Text>
+                      <Text style={styles.evfamPessoaDesc}>{m.idade || 'Sem idade informada'}</Text>
+                    </View>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            )}
+
+            <View style={styles.evfamResumo}>
+              <Text style={styles.evfamResumoTitulo}>Pontuação: {rascunho.pontuacao}</Text>
+              <Text style={styles.evfamResumoDesc}>{textoClassificacaoEvfam(rascunho.classificacao)}</Text>
+            </View>
+
+            <View style={styles.row}>
+              <Input
+                label="Motivo"
+                value={rascunho.motivo}
+                onChange={(v: any) => alterarCampo('motivo', v.replace(/[^0-9]/g, ''))}
+                half
+                numeric
+                placeholder="1"
+              />
+              <Input
+                label="Classificação"
+                value={`${rascunho.classificacao} - ${textoClassificacaoEvfam(rascunho.classificacao)}`}
+                readonly
+                half
+              />
+            </View>
+
+            <Text style={styles.evfamGrupoTitulo}>Questionário</Text>
+
+            {CAMPOS_PONTUACAO_EVFAM.map((campo) => (
+              <View key={String(campo)} style={styles.evfamPergunta}>
+                <Text style={styles.evfamPerguntaTexto}>{LABELS_EVFAM[String(campo)]}</Text>
+                <View style={styles.evfamOpcaoRow}>
+                  <TouchableOpacity
+                    style={[styles.evfamOpcao, rascunho[campo] === 'S' && styles.evfamOpcaoSim]}
+                    onPress={() => alterarCampo(campo, 'S')}
+                  >
+                    <Text style={[styles.evfamOpcaoTexto, rascunho[campo] === 'S' && styles.evfamOpcaoTextoOn]}>Sim</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={[styles.evfamOpcao, rascunho[campo] === 'N' && styles.evfamOpcaoNao]}
+                    onPress={() => alterarCampo(campo, 'N')}
+                  >
+                    <Text style={[styles.evfamOpcaoTexto, rascunho[campo] === 'N' && styles.evfamOpcaoTextoOn]}>Não</Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+            ))}
+          </ScrollView>
+
+          <View style={styles.evfamFooter}>
+            <TouchableOpacity style={styles.btnCancelarEvfam} onPress={onFechar}>
+              <Text style={styles.btnCancelarEvfamTxt}>Cancelar</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity style={styles.btnSalvarEvfam} onPress={salvar}>
+              <Text style={styles.btnSalvarEvfamTxt}>Salvar EVFAM</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </View>
+    </Modal>
+  );
+}
+
 export default function VisitaDomiciliarScreen() {
   const { width, height } = useWindowDimensions();
   const isTablet = width >= 768 && width > height;
@@ -469,9 +721,10 @@ export default function VisitaDomiciliarScreen() {
   const scrollResetTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const finalizandoAssinaturaRef = useRef(false);
 
-  const { moradoresParam, microAreaParam } = useLocalSearchParams<{
+  const { moradoresParam, microAreaParam, domicilioIdParam } = useLocalSearchParams<{
     moradoresParam?: string;
     microAreaParam?: string;
+    domicilioIdParam?: string;
   }>();
 
   const theme = Colors[useColorScheme() ?? 'light'];
@@ -489,6 +742,9 @@ export default function VisitaDomiciliarScreen() {
   const [moradores, setMoradores] = useState<EstadoMorador[]>([]);
   const [desfechos, setDesfechos] = useState<Record<string, number>>({});
   const [modalDesfecho, setModalDesfecho] = useState(false);
+  const [modalEvfam, setModalEvfam] = useState(false);
+  const [evfamHabilitado, setEvfamHabilitado] = useState(false);
+  const [evfam, setEvfam] = useState<FormEvfam>(EVFAM_INICIAL);
 
   const [assinaturaDesenhada, setAssinaturaDesenhada] = useState(false);
 
@@ -585,6 +841,64 @@ export default function VisitaDomiciliarScreen() {
         clearTimeout(scrollResetTimeoutRef.current);
       }
     };
+  }, []);
+
+  useEffect(() => {
+    async function carregarParametroEvfam() {
+      const auth: any = useAuthStore.getState();
+
+      const parametroLocal =
+        auth?.parametros?.riscoFamiliar ||
+        auth?.parametros?.SDPARAMETROPSFRISCOFAMILIAR ||
+        auth?.tenantConfig?.parametros?.riscoFamiliar ||
+        auth?.tenantConfig?.parametros?.SDPARAMETROPSFRISCOFAMILIAR ||
+        auth?.config?.SDPARAMETROPSFRISCOFAMILIAR ||
+        null;
+
+      if (parametroLocal) {
+        setEvfamHabilitado(String(parametroLocal).trim().toUpperCase() === 'P');
+        return;
+      }
+
+      const token = auth?.token || auth?.accessToken || auth?.userToken || '';
+      const municipioSlug =
+        auth?.municipioSlug ||
+        auth?.municipio?.slug ||
+        auth?.tenant?.slug ||
+        auth?.user?.municipioSlug ||
+        '';
+
+      if (!token || !municipioSlug) {
+        setEvfamHabilitado(false);
+        return;
+      }
+
+      try {
+        const response = await fetch(`${API_BASE_URL}/api/sync/parametros-gerais`, {
+          method: 'GET',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${token}`,
+            'x-municipio-slug': municipioSlug,
+          },
+        });
+
+        const result = await response.json();
+        const parametroRemoto =
+          result?.dados?.SDPARAMETROPSFRISCOFAMILIAR ||
+          result?.dados?.sdparametropsfriscofamiliar ||
+          result?.parametros?.riscoFamiliar ||
+          result?.riscoFamiliar ||
+          null;
+
+        setEvfamHabilitado(String(parametroRemoto || '').trim().toUpperCase() === 'P');
+      } catch (error) {
+        console.log('[VISITA][EVFAM] Não foi possível carregar parâmetro:', error);
+        setEvfamHabilitado(false);
+      }
+    }
+
+    carregarParametroEvfam();
   }, []);
 
   useEffect(() => {
@@ -732,6 +1046,13 @@ export default function VisitaDomiciliarScreen() {
         ...prev,
         ...condicoesZeradas,
       };
+    });
+    setEvfam((prev) => {
+      if (prev.pessoaId || moradores.length === 0) {
+        return prev;
+      }
+
+      return { ...prev, pessoaId: moradores[0].id };
     });
   }, [moradores]);
 
@@ -1010,6 +1331,38 @@ export default function VisitaDomiciliarScreen() {
           r.partos = parseInt(form.partos) || 0;
           r.obs = form.obs;
 
+          const deveEnviarEvfamNestaFicha =
+            evfamHabilitado &&
+            evfam.realizado &&
+            (!m || !evfam.pessoaId || String(evfam.pessoaId) === String(m.id));
+
+          const evfamParaEnviar = deveEnviarEvfamNestaFicha
+            ? {
+                realizado: true,
+                sddomicilioid: Number(domicilioIdParam || 0) || null,
+                pessoaId: Number(evfam.pessoaId || m?.id || 0) || null,
+                data: dataSql,
+                suspeitaViolencia: evfam.suspeitaViolencia,
+                motivo: Number(evfam.motivo || 1) || 1,
+                dificFinanc: evfam.dificFinanc,
+                faltaDinheiro: evfam.faltaDinheiro,
+                dificAlimento: evfam.dificAlimento,
+                medicamento: evfam.medicamento,
+                variosMedic: evfam.variosMedic,
+                cuidadoContinuo: evfam.cuidadoContinuo,
+                dificAtividade: evfam.dificAtividade,
+                ajudaSaude: evfam.ajudaSaude,
+                maeAusente: evfam.maeAusente,
+                paiAusente: evfam.paiAusente,
+                abandonoFamilia: evfam.abandonoFamilia,
+                pessoaViolenta: evfam.pessoaViolenta,
+                vitimaViolencia: evfam.vitimaViolencia,
+                violencia: evfam.violencia,
+                pontuacao: evfam.pontuacao,
+                classificacao: evfam.classificacao,
+              }
+            : null;
+
           r.dados = JSON.stringify({
             SDVisitaDomiciliarGUID: r.guid,
             SDVisitaDomiciliarUsuarioGUID: m ? m.guid : null,
@@ -1093,6 +1446,8 @@ export default function VisitaDomiciliarScreen() {
             SDVisitaDomiciliarUnidadeId: profissional?.unidadeId || null,
             SDVisitaDomiciliarEquipeId: profissional?.equipeId || null,
             SDVisitaDomiciliarCBOProfId: profissional?.cboCodigo || null,
+
+            SDVulnerabilidadeFamiliar: evfamParaEnviar,
           });
         };
 
@@ -1340,7 +1695,7 @@ export default function VisitaDomiciliarScreen() {
                 </View>
               </Secao>
 
-              <Secao titulo="Sinais Vitais e Antropometria" cor="#E11D48">
+              <Secao  titulo="Sinais Vitais e Antropometria" cor="#E11D48" abertaInicial={false}>
                 <View style={styles.row}>
                   <Input label="Peso (kg)" value={form.peso} onChange={(v: any) => upd({ peso: v })} half numeric />
                   <Input label="Altura (cm)" value={form.altura} onChange={(v: any) => upd({ altura: v })} half numeric />
@@ -1455,12 +1810,34 @@ export default function VisitaDomiciliarScreen() {
           </View>
         </ScrollView>
 
+        {evfamHabilitado && (
+          <TouchableOpacity
+            style={[styles.fabEvfam, evfam.realizado && styles.fabEvfamPreenchido]}
+            onPress={() => setModalEvfam(true)}
+            activeOpacity={0.9}
+          >
+            <Ionicons name={evfam.realizado ? 'shield-checkmark' : 'shield-outline'} size={22} color="#fff" />
+            <Text style={styles.fabEvfamTexto}>{evfam.realizado ? `EVFAM ${evfam.pontuacao}` : 'EVFAM'}</Text>
+          </TouchableOpacity>
+        )}
+
         <View style={styles.footer}>
           <TouchableOpacity style={styles.btnConfirmar} onPress={() => setModalDesfecho(true)} disabled={salvando}>
             {salvando ? <ActivityIndicator color="#fff" /> : <Text style={styles.btnConfirmarTxt}>FINALIZAR VISITA</Text>}
           </TouchableOpacity>
         </View>
       </KeyboardAvoidingView>
+
+      <EvfamModal
+        visivel={modalEvfam}
+        moradores={moradores}
+        valor={evfam}
+        onFechar={() => setModalEvfam(false)}
+        onSalvar={(novoEvfam) => {
+          setEvfam(novoEvfam);
+          setModalEvfam(false);
+        }}
+      />
 
       <Modal visible={modalDesfecho} transparent animationType="slide">
         <View style={styles.modalOverlay}>
@@ -1649,6 +2026,34 @@ const getStyles = (theme: any) =>
 
     signatureBox: { height: 200, borderWidth: 1, borderColor: theme.border, borderRadius: 16, overflow: 'hidden', marginTop: 8, backgroundColor: '#fff' },
 
+    fabEvfam: {
+      position: 'absolute',
+      right: 18,
+      bottom: 92,
+      backgroundColor: '#2563EB',
+      borderRadius: 999,
+      paddingHorizontal: 16,
+      paddingVertical: 12,
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 8,
+      shadowColor: '#000',
+      shadowOffset: { width: 0, height: 8 },
+      shadowOpacity: 0.22,
+      shadowRadius: 12,
+      elevation: 8,
+      zIndex: 20,
+    },
+    fabEvfamPreenchido: {
+      backgroundColor: '#059669',
+    },
+    fabEvfamTexto: {
+      color: '#fff',
+      fontSize: 13,
+      fontWeight: '900',
+      letterSpacing: 0.2,
+    },
+
     footer: {
       padding: 16,
       backgroundColor: theme.card,
@@ -1657,6 +2062,172 @@ const getStyles = (theme: any) =>
     },
     btnConfirmar: { backgroundColor: theme.primary, minHeight: 56, borderRadius: 18, alignItems: 'center', justifyContent: 'center', shadowColor: theme.primary, shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.2, shadowRadius: 14, elevation: 4 },
     btnConfirmarTxt: { color: '#fff', fontWeight: '800', fontSize: 16, letterSpacing: 0.4 },
+
+    modalCardEvfam: {
+      backgroundColor: theme.card,
+      padding: 18,
+      borderRadius: 22,
+      width: '100%',
+      maxHeight: '88%',
+      borderWidth: 1,
+      borderColor: theme.border,
+    },
+    modalHeaderEvfam: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      marginBottom: 12,
+      gap: 10,
+    },
+    modalTituloEvfam: {
+      fontSize: 20,
+      fontWeight: '900',
+      color: theme.text,
+    },
+    modalSubtituloEvfam: {
+      fontSize: 12,
+      color: theme.textMuted,
+      marginTop: 2,
+      fontWeight: '700',
+    },
+    modalCloseBtn: {
+      width: 38,
+      height: 38,
+      borderRadius: 999,
+      alignItems: 'center',
+      justifyContent: 'center',
+      backgroundColor: theme.cardSecondary,
+      borderWidth: 1,
+      borderColor: theme.border,
+    },
+    evfamBloco: {
+      marginBottom: 12,
+      gap: 8,
+    },
+    evfamPessoaItem: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 10,
+      padding: 12,
+      borderRadius: 16,
+      borderWidth: 1,
+      borderColor: theme.border,
+      backgroundColor: theme.cardSecondary,
+    },
+    evfamPessoaItemOn: {
+      borderColor: theme.primary,
+      backgroundColor: theme.infoBg,
+    },
+    evfamPessoaNome: {
+      fontSize: 13,
+      fontWeight: '800',
+      color: theme.text,
+    },
+    evfamPessoaDesc: {
+      fontSize: 11,
+      color: theme.textMuted,
+      marginTop: 2,
+    },
+    evfamResumo: {
+      padding: 14,
+      borderRadius: 18,
+      backgroundColor: theme.infoBg,
+      borderWidth: 1,
+      borderColor: theme.border,
+      marginBottom: 12,
+    },
+    evfamResumoTitulo: {
+      color: theme.primary,
+      fontWeight: '900',
+      fontSize: 16,
+    },
+    evfamResumoDesc: {
+      color: theme.textSecondary,
+      fontSize: 12,
+      fontWeight: '700',
+      marginTop: 2,
+    },
+    evfamGrupoTitulo: {
+      fontSize: 13,
+      fontWeight: '900',
+      color: theme.text,
+      marginTop: 4,
+      marginBottom: 8,
+    },
+    evfamPergunta: {
+      paddingVertical: 12,
+      borderBottomWidth: 1,
+      borderColor: theme.border,
+      gap: 10,
+    },
+    evfamPerguntaTexto: {
+      fontSize: 13,
+      fontWeight: '700',
+      color: theme.textSecondary,
+      lineHeight: 18,
+    },
+    evfamOpcaoRow: {
+      flexDirection: 'row',
+      gap: 8,
+    },
+    evfamOpcao: {
+      flex: 1,
+      minHeight: 40,
+      borderRadius: 12,
+      alignItems: 'center',
+      justifyContent: 'center',
+      borderWidth: 1,
+      borderColor: theme.border,
+      backgroundColor: theme.cardSecondary,
+    },
+    evfamOpcaoSim: {
+      backgroundColor: '#DC2626',
+      borderColor: '#DC2626',
+    },
+    evfamOpcaoNao: {
+      backgroundColor: '#059669',
+      borderColor: '#059669',
+    },
+    evfamOpcaoTexto: {
+      fontSize: 12,
+      color: theme.textSecondary,
+      fontWeight: '900',
+    },
+    evfamOpcaoTextoOn: {
+      color: '#fff',
+    },
+    evfamFooter: {
+      flexDirection: 'row',
+      gap: 10,
+      marginTop: 14,
+    },
+    btnCancelarEvfam: {
+      flex: 1,
+      minHeight: 50,
+      borderRadius: 16,
+      alignItems: 'center',
+      justifyContent: 'center',
+      borderWidth: 1,
+      borderColor: theme.border,
+      backgroundColor: theme.cardSecondary,
+    },
+    btnCancelarEvfamTxt: {
+      color: theme.textSecondary,
+      fontWeight: '900',
+      fontSize: 13,
+    },
+    btnSalvarEvfam: {
+      flex: 1.4,
+      minHeight: 50,
+      borderRadius: 16,
+      alignItems: 'center',
+      justifyContent: 'center',
+      backgroundColor: theme.primary,
+    },
+    btnSalvarEvfamTxt: {
+      color: '#fff',
+      fontWeight: '900',
+      fontSize: 13,
+    },
 
     modalOverlay: {
       flex: 1,

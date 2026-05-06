@@ -9,9 +9,9 @@ export class SyncController {
   constructor(private readonly syncService: SyncService) { }
 
   @Get('ping')
-ping() {
-  return { ok: true };
-}
+  ping() {
+    return { ok: true };
+  }
 
   @UseGuards(JwtAuthGuard)
   @Post()
@@ -42,6 +42,14 @@ ping() {
       unidadeId: unidadeId ? Number(unidadeId) : 0,
       microArea: microArea || '',
     });
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Get('parametros-gerais')
+  async obterParametrosGerais(
+    @Headers('x-municipio-slug') slug: string,
+  ) {
+    return this.syncService.obterParametrosGerais(slug);
   }
 
   @UseGuards(JwtAuthGuard)

@@ -55,8 +55,15 @@ export default function PerfilScreen() {
     (state) => state.setIgnorarBloqueioTemporario,
   );
   async function salvarFotoPerfil(uri: string) {
-    const extensao = uri.split('.').pop()?.split('?')[0] || 'jpg';
-    const destinoUri = `${FileSystem.documentDirectory}foto-perfil.${extensao}`;
+  try {
+    const extensaoOriginal = uri.split('.').pop()?.split('?')[0];
+    const extensao =
+      extensaoOriginal && extensaoOriginal.length <= 5
+        ? extensaoOriginal
+        : 'jpg';
+
+    const nomeArquivo = `foto-perfil-${Date.now()}.${extensao}`;
+    const destinoUri = `${FileSystem.documentDirectory}${nomeArquivo}`;
 
     await FileSystem.copyAsync({
       from: uri,
@@ -64,7 +71,15 @@ export default function PerfilScreen() {
     });
 
     setFotoPerfilUri(destinoUri);
+  } catch (error: any) {
+    console.log('[PERFIL][FOTO] Erro ao salvar foto:', error);
+
+    Alert.alert(
+      'Erro ao salvar foto',
+      error?.message || 'Não foi possível salvar a foto de perfil.',
+    );
   }
+}
   async function escolherFotoDaGaleria() {
   setIgnorarBloqueioTemporario(true);
 

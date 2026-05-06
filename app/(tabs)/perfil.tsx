@@ -8,6 +8,8 @@ import {
   TouchableOpacity,
   useColorScheme,
   View,
+  ActionSheetIOS,
+  Platform
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -49,7 +51,93 @@ export default function PerfilScreen() {
   const styles = useMemo(() => getStyles(theme), [theme]);
   const fotoPerfilUri = useProfileStore((state) => state.fotoPerfilUri);
   const setFotoPerfilUri = useProfileStore((state) => state.setFotoPerfilUri);
+  const setIgnorarBloqueioTemporario = useAuthStore(
+    (state) => state.setIgnorarBloqueioTemporario,
+  );
+  async function salvarFotoPerfil(uri: string) {
+    const extensao = uri.split('.').pop()?.split('?')[0] || 'jpg';
+    const destinoUri = `${FileSystem.documentDirectory}foto-perfil.${extensao}`;
 
+    await FileSystem.copyAsync({
+      from: uri,
+      to: destinoUri,
+    });
+
+    setFotoPerfilUri(destinoUri);
+  }
+  async function escolherFotoDaGaleria() {
+  setIgnorarBloqueioTemporario(true);
+
+  try {
+    const permissao = await ImagePicker.requestMediaLibraryPermissionsAsync();
+
+    if (!permissao.granted) {
+      Alert.alert(
+        'Permissão necessária',
+        'Para escolher uma foto de perfil, permita o acesso às imagens do aparelho.',
+      );
+      return;
+    }
+
+    const resultado = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      allowsEditing: true,
+      aspect: [1, 1],
+      quality: 0.8,
+    });
+
+    if (resultado.canceled || !resultado.assets?.[0]?.uri) {
+      return;
+    }
+
+    await salvarFotoPerfil(resultado.assets[0].uri);
+  } catch (error: any) {
+    Alert.alert(
+      'Erro ao escolher foto',
+      error?.message || 'Não foi possível salvar a foto de perfil.',
+    );
+  } finally {
+    setTimeout(() => {
+      setIgnorarBloqueioTemporario(false);
+    }, 1500);
+  }
+}
+async function tirarFotoNaHora() {
+  setIgnorarBloqueioTemporario(true);
+
+  try {
+    const permissao = await ImagePicker.requestCameraPermissionsAsync();
+
+    if (!permissao.granted) {
+      Alert.alert(
+        'Permissão necessária',
+        'Para tirar uma foto de perfil, permita o acesso à câmera.',
+      );
+      return;
+    }
+
+    const resultado = await ImagePicker.launchCameraAsync({
+      allowsEditing: true,
+      aspect: [1, 1],
+      quality: 0.8,
+    });
+
+    if (resultado.canceled || !resultado.assets?.[0]?.uri) {
+      return;
+    }
+
+    await salvarFotoPerfil(resultado.assets[0].uri);
+  } catch (error: any) {
+    Alert.alert(
+      'Erro ao tirar foto',
+      error?.message || 'Não foi possível salvar a foto de perfil.',
+    );
+  } finally {
+    setTimeout(() => {
+      setIgnorarBloqueioTemporario(false);
+    }, 1500);
+  }
+}
   const municipio =
     formatarTexto(
       (profissional as any)?.municipioNome ??
@@ -110,47 +198,46 @@ export default function PerfilScreen() {
       ],
     );
   }
-  async function handleSelecionarFoto() {
-    try {
-      const permissao = await ImagePicker.requestMediaLibraryPermissionsAsync();
+  function handleSelecionarFoto() {
+  if (Platform.OS === 'ios') {
+    ActionSheetIOS.showActionSheetWithOptions(
+      {
+        options: ['Cancelar', 'Tirar foto', 'Escolher da galeria'],
+        cancelButtonIndex: 0,
+      },
+      (buttonIndex) => {
+        if (buttonIndex === 1) {
+          tirarFotoNaHora();
+        }
 
-      if (!permissao.granted) {
-        Alert.alert(
-          'Permissão necessária',
-          'Para escolher uma foto de perfil, permita o acesso às imagens do aparelho.',
-        );
-        return;
-      }
+        if (buttonIndex === 2) {
+          escolherFotoDaGaleria();
+        }
+      },
+    );
 
-      const resultado = await ImagePicker.launchImageLibraryAsync({
-        mediaTypes: ['images'],
-        allowsEditing: true,
-        aspect: [1, 1],
-        quality: 0.8,
-      });
-
-      if (resultado.canceled || !resultado.assets?.[0]?.uri) {
-        return;
-      }
-
-      const origemUri = resultado.assets[0].uri;
-      const extensao = origemUri.split('.').pop()?.split('?')[0] || 'jpg';
-      const destinoUri = `${FileSystem.documentDirectory}foto-perfil.${extensao}`;
-
-      await FileSystem.copyAsync({
-        from: origemUri,
-        to: destinoUri,
-      });
-
-      setFotoPerfilUri(destinoUri);
-    } catch (error: any) {
-      Alert.alert(
-        'Erro ao escolher foto',
-        error?.message || 'Não foi possível salvar a foto de perfil.',
-      );
-    }
+    return;
   }
 
+  Alert.alert(
+    'Foto de perfil',
+    'Como você deseja alterar sua foto?',
+    [
+      {
+        text: 'Tirar foto',
+        onPress: tirarFotoNaHora,
+      },
+      {
+        text: 'Escolher da galeria',
+        onPress: escolherFotoDaGaleria,
+      },
+      {
+        text: 'Cancelar',
+        style: 'cancel',
+      },
+    ],
+  );
+}
   return (
     <SafeAreaView style={styles.safe}>
       <ScrollView

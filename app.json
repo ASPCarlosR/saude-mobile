@@ -70,6 +70,13 @@
           "locationWhenInUsePermission": "Permite registrar localização das visitas"
         }
       ],
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "O aplicativo precisa acessar suas fotos para escolher uma imagem de perfil.",
+          "cameraPermission": "O aplicativo precisa acessar sua câmera para tirar uma foto de perfil."
+        }
+      ],
       "expo-asset",
       "expo-font",
       [
@@ -77,7 +84,6 @@
         {
           "android": {
             "usesCleartextTraffic": true
-            
           }
         }
       ],

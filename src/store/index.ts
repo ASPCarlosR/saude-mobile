@@ -43,7 +43,9 @@ interface AuthState {
   unidade: Unidade | null;
   equipe: Equipe | null;
   reidratado: boolean;
+  ignorarBloqueioTemporario: boolean;
 
+  setIgnorarBloqueioTemporario: (valor: boolean) => void;
   setReidratado: (r: boolean) => void;
 
   setLogin: (prof: Profissional, token: string, unidade?: Unidade, equipe?: Equipe) => void;
@@ -90,7 +92,7 @@ export const useAuthStore = create<AuthState>()(
       unidade: null,
       equipe: null,
       reidratado: false,
-
+      ignorarBloqueioTemporario: false,
       setReidratado: (r) => set({ reidratado: r }),
 
       setUnidade: (unidade) => set({ unidade }),
@@ -159,6 +161,10 @@ export const useAuthStore = create<AuthState>()(
           String(state.municipioSlug).trim()
         );
       },
+      setIgnorarBloqueioTemporario: (valor: boolean) =>
+        set({
+          ignorarBloqueioTemporario: valor,
+        }),
     }),
     {
       name: 'auth-storage',

@@ -12,7 +12,12 @@ import { obterPermissaoDaRota, podeUsarModulo } from '../src/utils/tenant-permis
 LogBox.ignoreLogs(['Unable to activate keep awake']);
 
 export default function RootLayout() {
-  const { profissional, bloqueado, setBloqueado } = useAuthStore();
+  const {
+    profissional,
+    bloqueado,
+    setBloqueado,
+  } = useAuthStore();
+
   const segments = useSegments();
   const segmentList = useMemo(() => Array.from(segments), [segments]);
   const router = useRouter();
@@ -20,8 +25,13 @@ export default function RootLayout() {
   const [isReady, setIsReady] = useState(false);
   const [tenantConfig, setTenantConfig] = useState<TenantConfigPublica | null>(null);
   const [tenantConfigLoaded, setTenantConfigLoaded] = useState(false);
+
   const appState = useRef(AppState.currentState);
-  const permissaoDaRota = useMemo(() => obterPermissaoDaRota(segmentList), [segmentList]);
+
+  const permissaoDaRota = useMemo(
+    () => obterPermissaoDaRota(segmentList),
+    [segmentList],
+  );
 
   useEffect(() => {
     setIsReady(true);
@@ -29,6 +39,7 @@ export default function RootLayout() {
 
   useEffect(() => {
     setTenantConfigLoaded(false);
+
     obterTenantConfig()
       .then(setTenantConfig)
       .catch(() => setTenantConfig(null))
@@ -37,14 +48,19 @@ export default function RootLayout() {
 
   useEffect(() => {
     const subscription = AppState.addEventListener('change', (nextAppState) => {
-      if (
+      const saiuDoApp =
         appState.current.match(/active/) &&
-        (nextAppState === 'background' || nextAppState === 'inactive')
-      ) {
-        if (profissional) {
+        (nextAppState === 'background' || nextAppState === 'inactive');
+
+      if (saiuDoApp && profissional) {
+        const ignorarBloqueioTemporario =
+          useAuthStore.getState().ignorarBloqueioTemporario;
+
+        if (!ignorarBloqueioTemporario) {
           setBloqueado(true);
         }
       }
+
       appState.current = nextAppState;
     });
 
@@ -63,6 +79,7 @@ export default function RootLayout() {
       if (!inAuthGroup || segmentList[1] !== 'login') {
         router.replace('/(auth)/login');
       }
+
       return;
     }
 
@@ -70,10 +87,15 @@ export default function RootLayout() {
       if (!inAuthGroup || segmentList[1] !== 'desbloqueio') {
         router.replace('/(auth)/desbloqueio');
       }
+
       return;
     }
 
-    if (permissaoDaRota && tenantConfigLoaded && !podeUsarModulo(tenantConfig, permissaoDaRota)) {
+    if (
+      permissaoDaRota &&
+      tenantConfigLoaded &&
+      !podeUsarModulo(tenantConfig, permissaoDaRota)
+    ) {
       router.replace('/(tabs)/home');
       return;
     }
@@ -81,12 +103,21 @@ export default function RootLayout() {
     if (inAuthGroup || isIndex) {
       router.replace('/(tabs)/home');
     }
-  }, [profissional, bloqueado, segmentList, isReady, permissaoDaRota, tenantConfig, tenantConfigLoaded, router]);
+  }, [
+    profissional,
+    bloqueado,
+    segmentList,
+    isReady,
+    permissaoDaRota,
+    tenantConfig,
+    tenantConfigLoaded,
+    router,
+  ]);
 
   useEffect(() => {
     if (Platform.OS === 'android') {
-      NavigationBar.setPositionAsync('absolute').catch(() => {});
-      NavigationBar.setVisibilityAsync('hidden').catch(() => {});
+      NavigationBar.setPositionAsync('absolute').catch(() => { });
+      NavigationBar.setVisibilityAsync('hidden').catch(() => { });
     }
   }, []);
 

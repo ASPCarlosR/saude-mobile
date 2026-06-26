@@ -1,4 +1,4 @@
-import { TenantConfigPublica, TenantPermissoes } from '../../src/types/tentant';
+import { TenantConfigPublica, TenantPermissoes } from '../../../src/types/tentant';
 
 export const TENANT_MODULES = {
   INICIO: 'inicio',

@@ -5,7 +5,7 @@ import {
   CreateDateColumn,
   UpdateDateColumn,
 } from 'typeorm';
-import { TenantPermissions } from './tenant-permissions';
+import type { TenantPermissoes } from '../../../src/types/tentant';
 
 @Entity('municipios')
 export class TenantEntity {
@@ -43,7 +43,7 @@ export class TenantEntity {
   api_base_url!: string | null;
 
   @Column({ type: 'jsonb', default: {} })
-  permissoes!: TenantPermissions;
+  permissoes!: TenantPermissoes;
 
   @CreateDateColumn({ type: 'timestamp' })
   created_at!: Date;

@@ -3,91 +3,125 @@ import { Stack, useRouter, useSegments } from 'expo-router';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import * as NavigationBar from 'expo-navigation-bar';
-import { Platform, AppState, LogBox } from 'react-native';
+import { Platform, AppState, View, Image, StyleSheet, Text } from 'react-native';
+import * as SplashScreen from 'expo-splash-screen';
+import Animated, {
+  useSharedValue,
+  useAnimatedStyle,
+  withTiming,
+  withDelay,
+  runOnJS,
+} from 'react-native-reanimated';
+import { BlurView } from 'expo-blur';
+
 import { useAuthStore } from '../src/store/index';
 import { TenantConfigPublica } from '../src/types/tentant';
 import { obterTenantConfig } from '../src/utils/tenant-storage';
-import { obterPermissaoDaRota, podeUsarModulo } from '../src/utils/tenant-permissons';
+import {
+  obterPermissaoDaRota,
+  podeUsarModulo,
+} from '../src/utils/tenant-permissons';
 
-LogBox.ignoreLogs(['Unable to activate keep awake']);
+SplashScreen.preventAutoHideAsync();
 
 export default function RootLayout() {
-  const {
-    profissional,
-    bloqueado,
-    setBloqueado,
-  } = useAuthStore();
+  const { profissional, bloqueado, setBloqueado } = useAuthStore();
 
   const segments = useSegments();
-  const segmentList = useMemo(() => Array.from(segments), [segments]);
   const router = useRouter();
 
-  const [isReady, setIsReady] = useState(false);
-  const [tenantConfig, setTenantConfig] = useState<TenantConfigPublica | null>(null);
+  const [appReady, setAppReady] = useState(false);
+  const [tenantConfig, setTenantConfig] =
+    useState<TenantConfigPublica | null>(null);
   const [tenantConfigLoaded, setTenantConfigLoaded] = useState(false);
+
+  const [showSplash, setShowSplash] = useState(true);
 
   const appState = useRef(AppState.currentState);
 
   const permissaoDaRota = useMemo(
-    () => obterPermissaoDaRota(segmentList),
-    [segmentList],
+    () => obterPermissaoDaRota(Array.from(segments)),
+    [segments],
   );
 
+  // 🎬 ANIMAÇÕES SPLASH
+  const opacity = useSharedValue(1);
+  const logoY = useSharedValue(20);
+  const blur = useSharedValue(0);
+
+  const splashStyle = useAnimatedStyle(() => ({
+    opacity: opacity.value,
+  }));
+
+  const logoStyle = useAnimatedStyle(() => ({
+    transform: [{ translateY: logoY.value }],
+  }));
+
+  const blurStyle = useAnimatedStyle(() => ({
+    opacity: blur.value,
+  }));
+
+  function finishSplash() {
+    setShowSplash(false);
+  }
+
   useEffect(() => {
-    setIsReady(true);
+    async function init() {
+      try {
+        const tenant = await obterTenantConfig();
+        setTenantConfig(tenant);
+      } catch {
+        setTenantConfig(null);
+      } finally {
+        setTenantConfigLoaded(true);
+        setAppReady(true);
+
+        await SplashScreen.hideAsync();
+
+
+        blur.value = withTiming(1, { duration: 400 });
+        logoY.value = withTiming(-10, { duration: 600 });
+        opacity.value = withDelay(
+          700,
+          withTiming(0, { duration: 500 }, (finished) => {
+            if (finished) runOnJS(finishSplash)();
+          }),
+        );
+      }
+    }
+
+    init();
   }, []);
 
   useEffect(() => {
-    setTenantConfigLoaded(false);
-
-    obterTenantConfig()
-      .then(setTenantConfig)
-      .catch(() => setTenantConfig(null))
-      .finally(() => setTenantConfigLoaded(true));
-  }, [profissional, bloqueado]);
-
-  useEffect(() => {
-    const subscription = AppState.addEventListener('change', (nextAppState) => {
-      const saiuDoApp =
+    const sub = AppState.addEventListener('change', (next) => {
+      const saiu =
         appState.current.match(/active/) &&
-        (nextAppState === 'background' || nextAppState === 'inactive');
+        (next === 'background' || next === 'inactive');
 
-      if (saiuDoApp && profissional) {
-        const ignorarBloqueioTemporario =
-          useAuthStore.getState().ignorarBloqueioTemporario;
-
-        if (!ignorarBloqueioTemporario) {
-          setBloqueado(true);
-        }
+      if (saiu && profissional) {
+        setBloqueado(true);
       }
 
-      appState.current = nextAppState;
+      appState.current = next;
     });
 
-    return () => {
-      subscription.remove();
-    };
-  }, [profissional, setBloqueado]);
+    return () => sub.remove();
+  }, [profissional]);
 
   useEffect(() => {
-    if (!isReady) return;
+    if (!appReady) return;
 
-    const inAuthGroup = segmentList[0] === '(auth)';
-    const isIndex = segmentList.length === 0 || segmentList[0] === 'index';
+    const inAuth = segments[0] === '(auth)';
+    const isIndex = segments.length === 0;
 
     if (!profissional) {
-      if (!inAuthGroup || segmentList[1] !== 'login') {
-        router.replace('/(auth)/login');
-      }
-
+      if (!inAuth) router.replace('/(auth)/login');
       return;
     }
 
     if (profissional && bloqueado) {
-      if (!inAuthGroup || segmentList[1] !== 'desbloqueio') {
-        router.replace('/(auth)/desbloqueio');
-      }
-
+      if (!inAuth) router.replace('/(auth)/desbloqueio');
       return;
     }
 
@@ -100,47 +134,60 @@ export default function RootLayout() {
       return;
     }
 
-    if (inAuthGroup || isIndex) {
+    if (inAuth || isIndex) {
       router.replace('/(tabs)/home');
     }
   }, [
     profissional,
     bloqueado,
-    segmentList,
-    isReady,
+    segments,
+    appReady,
     permissaoDaRota,
     tenantConfig,
     tenantConfigLoaded,
-    router,
   ]);
 
-useEffect(() => {
-  if (Platform.OS !== 'android') return;
+  useEffect(() => {
+    if (Platform.OS !== 'android') return;
 
-  async function esconderNavigationBar() {
-    try {
-      await NavigationBar.setPositionAsync('absolute');
-      await NavigationBar.setBehaviorAsync('overlay-swipe');
-      await NavigationBar.setVisibilityAsync('hidden');
-    } catch (error) {
-      console.log('[NAVIGATION_BAR] Erro ao esconder:', error);
-    }
+    NavigationBar.setPositionAsync('absolute');
+    NavigationBar.setBehaviorAsync('overlay-swipe');
+    NavigationBar.setVisibilityAsync('hidden');
+  }, []);
+
+  // 🚀 SPLASH PREMIUM (OVERLAY)
+  if (showSplash) {
+    return (
+      <View style={{ flex: 1, backgroundColor: '#0B0B0F' }}>
+        {/* Blur de fundo */}
+        <Animated.View style={[{ ...StyleSheet.absoluteFillObject }, blurStyle]}>
+          <BlurView intensity={30} style={{ flex: 1 }} />
+        </Animated.View>
+
+        {/* Logo central */}
+        <Animated.View
+          style={[
+            {
+              flex: 1,
+              justifyContent: 'center',
+              alignItems: 'center',
+            },
+            splashStyle,
+          ]}
+        >
+          <Animated.View style={logoStyle}>
+            <Image
+              source={require('../assets/logo.png')}
+              style={{ width: 140, height: 140 }}
+              resizeMode="contain"
+            />
+          </Animated.View>
+          <Text>ASSESSOR SAÚDE - MOBILE</Text>
+        </Animated.View>
+        
+      </View>
+    );
   }
-
-  esconderNavigationBar();
-
-  const subscription = AppState.addEventListener('change', (nextAppState) => {
-    if (nextAppState === 'active') {
-      setTimeout(() => {
-        esconderNavigationBar();
-      }, 300);
-    }
-  });
-
-  return () => {
-    subscription.remove();
-  };
-}, []);
 
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
@@ -151,7 +198,10 @@ useEffect(() => {
           <Stack.Screen name="(tabs)" />
           <Stack.Screen
             name="fichas"
-            options={{ presentation: 'card', animation: 'slide_from_right' }}
+            options={{
+              presentation: 'card',
+              animation: 'slide_from_right',
+            }}
           />
         </Stack>
       </SafeAreaProvider>

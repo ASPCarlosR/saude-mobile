@@ -6,7 +6,7 @@ import {
 import { InjectRepository } from '@nestjs/typeorm';
 import { DataSource, Repository } from 'typeorm';
 import { TenantEntity } from './tenant.entity';
-import { normalizeTenantPermissions } from './tenant-permissions';
+import { normalizarPermissoesTenant as normalizeTenantPermissions} from './tenant-permissions';
 
 @Injectable()
 export class TenantService implements OnModuleDestroy {

@@ -7,9 +7,9 @@
     "icon": "./assets/logo.png",
     "userInterfaceStyle": "automatic",
     "splash": {
-      "image": "./assets/splash.png",
+      "image": "./assets/logo.png",
       "resizeMode": "contain",
-      "backgroundColor": "#FFFFFF"
+      "backgroundColor": "#0B0B0F"
     },
     "assetBundlePatterns": [
       "**/*"
@@ -33,7 +33,7 @@
     "android": {
       "adaptiveIcon": {
         "foregroundImage": "./assets/logo.png",
-        "backgroundColor": "#FFFFFF"
+        "backgroundColor": "#0B0B0F"
       },
       "package": "br.gov.saude.mobile",
       "permissions": [
@@ -59,9 +59,15 @@
       "expo-router",
       "expo-secure-store",
       [
-        "expo-local-authentication",
+        "expo-splash-screen",
         {
-          "faceIDPermission": "Permite desbloquear o app com reconhecimento facial"
+          "image": "./assets/logo.png",
+          "imageWidth": 140,
+          "resizeMode": "contain",
+          "backgroundColor": "#0B0B0F",
+          "dark": {
+            "backgroundColor": "#0B0B0F"
+          }
         }
       ],
       [
@@ -84,7 +90,7 @@
         {
           "android": {
             "usesCleartextTraffic": true,
-             "navigationBarColor": "#000000"
+            "navigationBarColor": "#000000"
           }
         }
       ],

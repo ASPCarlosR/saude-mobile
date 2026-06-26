@@ -1,7 +1,7 @@
 import { Injectable, UnauthorizedException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { TenantService } from '../tenant/tenant.service';
-import { normalizeTenantPermissions } from '../tenant/tenant-permissions';
+import { normalizarPermissoesTenant as normalizeTenantPermissions} from '../tenant/tenant-permissions';
 
 @Injectable()
 export class AuthService {

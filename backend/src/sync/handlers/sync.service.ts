@@ -2303,36 +2303,91 @@ export class SyncService {
   async obterPermissoesApp(slug: string, usuarioId: number) {
   const db = await this.getDb(slug);
 
-  const appMenus = [
-    { modulo: 'cadastro_individual', aspmenuid: 110091 },
-    { modulo: 'agendamento', aspmenuid: 110146 },
-    { modulo: 'transporte', aspmenuid: 110204 },
-    { modulo: 'cadastro_domiciliar', aspmenuid: 110381 },
-    { modulo: 'visita_domiciliar', aspmenuid: 110395 },
-    { modulo: 'atividade_coletiva', aspmenuid: 110396 },
-    { modulo: 'atividade_coletiva', aspmenuid: 110465 },
-    { modulo: 'marcador_consumo_alimentar', aspmenuid: 110440 },
-    { modulo: 'avaliacao_elegibilidade', aspmenuid: 110441 },
-    { modulo: 'atendimento_domiciliar', aspmenuid: 110444 },
+  // SMART (novo)
+  const appMenusNovo = [
+    { modulo: 'agendamento', menuid: 110080 },
+    { modulo: 'cadastro_individual', menuid: 110069 },
+    { modulo: 'cadastro_domiciliar', menuid: 110116 },
+    { modulo: 'visita_domiciliar', menuid: 110065 },
+    { modulo: 'atividade_coletiva', menuid: 110294 },
+    { modulo: 'marcador_consumo_alimentar', menuid: 110249 },
+    { modulo: 'avaliacao_elegibilidade', menuid: 110335 },
+    { modulo: 'atendimento_domiciliar', menuid: 110279 },
   ];
 
-  const valuesSql = appMenus
+  // LEGADO (antigo)
+  const appMenusAntigo = [
+    { modulo: 'transporte', aspmenuid: 110204 },
+    { modulo: 'vacinacao', aspmenuid: 110309 },
+  ];
+
+  /**
+   * ==========================
+   * CONSULTA SMART (NOVO)
+   * ==========================
+   */
+  const valuesSqlNovo = appMenusNovo
     .map((_, index) => `($${index * 2 + 1}::text, $${index * 2 + 2}::int4)`)
     .join(', ');
 
-  const params = appMenus.flatMap((item) => [item.modulo, item.aspmenuid]);
-  const usuarioParamIndex = params.length + 1;
+  const paramsNovo = appMenusNovo.flatMap((item) => [item.modulo, item.menuid]);
+  const usuarioParamIndexNovo = paramsNovo.length + 1;
 
-  const rows = await db.query(
+  const rowsNovo = await db.query(
     `
     WITH app_menus AS (
       SELECT *
-      FROM (VALUES ${valuesSql}) AS t(modulo, aspmenuid)
+      FROM (VALUES ${valuesSqlNovo}) AS t(modulo, menuid)
+    ),
+    papeis_validos AS (
+      SELECT up.papelusuarioid
+      FROM public.usuariopapel up
+      WHERE up.usuarioid = $${usuarioParamIndexNovo}
+        AND (
+          up.usupapeldatafinal IS NULL
+          OR up.usupapeldatafinal >= CURRENT_DATE
+        )
+    )
+    SELECT
+      am.modulo,
+      COALESCE(BOOL_OR(pua.menuid IS NOT NULL), false) AS acessa,
+      COALESCE(BOOL_OR(pua.menuid IS NOT NULL), false) AS altera,
+      COALESCE(BOOL_OR(pua.menuid IS NOT NULL), false) AS inclui,
+      COALESCE(BOOL_OR(pua.menuid IS NOT NULL), false) AS exclui
+    FROM app_menus am
+    LEFT JOIN public.papelusuarioacao pua
+      ON pua.menuid = am.menuid
+     AND pua.papelusuarioid IN (
+       SELECT papelusuarioid FROM papeis_validos
+     )
+    GROUP BY am.modulo
+    ORDER BY am.modulo
+    `,
+    [...paramsNovo, usuarioId]
+  );
+
+  /**
+   * ==========================
+   * CONSULTA LEGADO (ANTIGO)
+   * ==========================
+   */
+  const valuesSqlAntigo = appMenusAntigo
+    .map((_, index) => `($${index * 2 + 1}::text, $${index * 2 + 2}::int4)`)
+    .join(', ');
+
+  const paramsAntigo = appMenusAntigo.flatMap((item) => [item.modulo, item.aspmenuid]);
+  const usuarioParamIndexAntigo = paramsAntigo.length + 1;
+
+  const rowsAntigo = await db.query(
+    `
+    WITH app_menus AS (
+      SELECT *
+      FROM (VALUES ${valuesSqlAntigo}) AS t(modulo, aspmenuid)
     ),
     papeis_validos AS (
       SELECT asppapelusuarioid
       FROM public.aspusuariologinpapel
-      WHERE usuarioid = $${usuarioParamIndex}
+      WHERE usuarioid = $${usuarioParamIndexAntigo}
         AND (
           aspusuariologinpapeldataexp IS NULL
           OR aspusuariologinpapeldataexp <= DATE '1900-01-01'
@@ -2354,28 +2409,41 @@ export class SyncService {
     GROUP BY am.modulo
     ORDER BY am.modulo
     `,
-    [...params, usuarioId]
+    [...paramsAntigo, usuarioId]
   );
 
   this.logger.log(
-    '[PERMISSOES_APP] usuarioId=' +
-      usuarioId +
-      ' slug=' +
-      slug +
-      ' rows=' +
-      JSON.stringify(rows)
+    '[PERMISSOES_APP][NOVO] ' + JSON.stringify(rowsNovo)
   );
 
-  return rows.reduce((acc: any, row: any) => {
+  this.logger.log(
+    '[PERMISSOES_APP][ANTIGO] ' + JSON.stringify(rowsAntigo)
+  );
+
+  const permissoesNovo = rowsNovo.reduce((acc: any, row: any) => {
     acc[row.modulo] = {
       acessa: Boolean(row.acessa),
       altera: Boolean(row.altera),
       inclui: Boolean(row.inclui),
       exclui: Boolean(row.exclui),
     };
-
     return acc;
   }, {});
+
+  const permissoesAntigo = rowsAntigo.reduce((acc: any, row: any) => {
+    acc[row.modulo] = {
+      acessa: Boolean(row.acessa),
+      altera: Boolean(row.altera),
+      inclui: Boolean(row.inclui),
+      exclui: Boolean(row.exclui),
+    };
+    return acc;
+  }, {});
+
+  return {
+    ...permissoesNovo,
+    ...permissoesAntigo,
+  };
 }
   async buscarEnderecosDne(termo: string, municipioSlug: string) {
     const db = await this.getDb(municipioSlug);

@@ -77,51 +77,42 @@ export default function PerfilScreen() {
     (state) => state.setIgnorarBloqueioTemporario,
   );
 
-  const nome = formatarTexto(profissional?.nome, 'Usuário');
+  const dadosFormatados = useMemo(() => {
+    const p: any = profissional || {};
+    const nome = formatarTexto(p.nome, 'Usuário');
 
-  const municipio = formatarTexto(
-    (profissional as any)?.municipioNome ??
-      (profissional as any)?.nomeMunicipio ??
-      (profissional as any)?.municipio ??
-      formatarMunicipioSlug(municipioSlug),
-  );
+    const municipio = formatarTexto(
+      p.municipioNome ?? p.nomeMunicipio ?? p.municipio ?? formatarMunicipioSlug(municipioSlug),
+    );
 
-  const equipe = formatarTexto(
-    (profissional as any)?.equipeNome ??
-      (profissional as any)?.nomeEquipe ??
-      (profissional as any)?.equipe ??
-      equipeStore?.nome ??
-      equipeStore?.descricao ??
-      profissional?.ine ??
-      profissional?.equipeId,
-  );
+    const equipe = formatarTexto(
+      p.equipeNome ??
+        p.nomeEquipe ??
+        p.equipe ??
+        equipeStore?.nome ??
+        equipeStore?.descricao ??
+        p.ine ??
+        p.equipeId,
+    );
 
-  const unidade = formatarTexto(
-    (profissional as any)?.unidadeNome ??
-      (profissional as any)?.nomeUnidade ??
-      (profissional as any)?.unidade ??
-      unidadeStore?.nome ??
-      unidadeStore?.descricao ??
-      profissional?.cnes ??
-      profissional?.unidadeId,
-  );
+    const unidade = formatarTexto(
+      p.unidadeNome ??
+        p.nomeUnidade ??
+        p.unidade ??
+        unidadeStore?.nome ??
+        unidadeStore?.descricao ??
+        p.cnes ??
+        p.unidadeId,
+    );
 
- const cboDescricao = formatarTexto(
-  (profissional as any)?.cboDescricao ??
-    (profissional as any)?.cbo_descricao ??
-    (profissional as any)?.descricaoCbo ??
-    (profissional as any)?.descricao_cbo ??
-    (profissional as any)?.cboNome ??
-    (profissional as any)?.nomeCbo,
-  '',
-);
+    const cboDescricao = formatarTexto(
+      p.cboDescricao ?? p.cbo_descricao ?? p.descricaoCbo ?? p.descricao_cbo ?? p.cboNome ?? p.nomeCbo,
+    );
+    const cboCodigo = formatarTexto(p.cboCodigo);
+    const cbo = cboDescricao && cboCodigo ? `${cboDescricao} (${cboCodigo})` : cboDescricao || cboCodigo || 'Não informado';
 
-const cboCodigo = formatarTexto(profissional?.cboCodigo, '');
-
-const cbo =
-  cboDescricao && cboCodigo
-    ? `${cboDescricao} (${cboCodigo})`
-    : cboDescricao || cboCodigo || 'Não informado';
+    return { nome, municipio, equipe, unidade, cbo };
+  }, [profissional, municipioSlug, unidadeStore, equipeStore]);
 
   async function salvarFotoPerfil(uri: string) {
     try {
@@ -310,10 +301,10 @@ const cbo =
             onPress={handleSelecionarFoto}
             activeOpacity={0.85}
           >
-            {fotoPerfilUri ? (
+            {fotoPerfilUri ? ( 
               <Image source={{ uri: fotoPerfilUri }} style={styles.avatarImage} />
             ) : (
-              <Text style={styles.avatarText}>{getIniciais(nome)}</Text>
+              <Text style={styles.avatarText}>{getIniciais(dadosFormatados.nome)}</Text>
             )}
 
             <View style={styles.avatarCamera}>
@@ -327,7 +318,7 @@ const cbo =
             </Text>
           </TouchableOpacity>
 
-          <Text style={styles.nome}>{nome}</Text>
+          <Text style={styles.nome}>{dadosFormatados.nome}</Text>
           <Text style={styles.subtitulo}>Perfil do profissional</Text>
         </View>
 
@@ -350,40 +341,40 @@ const cbo =
               styles={styles}
               theme={theme}
               icon="person-circle-outline"
-              label="Nome"
-              value={nome}
+              label="Nome" 
+              value={dadosFormatados.nome}
             />
 
             <InfoRow
               styles={styles}
               theme={theme}
               icon="people-outline"
-              label="Equipe"
-              value={equipe}
+              label="Equipe" 
+              value={dadosFormatados.equipe}
             />
 
             <InfoRow
               styles={styles}
               theme={theme}
               icon="business-outline"
-              label="Unidade"
-              value={unidade}
+              label="Unidade" 
+              value={dadosFormatados.unidade}
             />
 
             <InfoRow
               styles={styles}
               theme={theme}
               icon="briefcase-outline"
-              label="CBO"
-              value={cbo}
+              label="CBO" 
+              value={dadosFormatados.cbo}
             />
 
             <InfoRow
               styles={styles}
               theme={theme}
               icon="location-outline"
-              label="Município"
-              value={municipio}
+              label="Município" 
+              value={dadosFormatados.municipio}
               isLast
             />
           </View>

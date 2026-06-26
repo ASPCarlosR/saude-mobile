@@ -66,32 +66,40 @@ export default function RootLayout() {
   }
 
   useEffect(() => {
-    async function init() {
-      try {
-        const tenant = await obterTenantConfig();
-        setTenantConfig(tenant);
-      } catch {
-        setTenantConfig(null);
-      } finally {
-        setTenantConfigLoaded(true);
-        setAppReady(true);
+  async function init() {
+    console.log('[SPLASH] 1 - init iniciado');
+    try {
+      console.log('[SPLASH] 2 - antes de obterTenantConfig');
+      const tenant = await obterTenantConfig();
+      console.log('[SPLASH] 3 - tenant obtido', tenant);
+      setTenantConfig(tenant);
+    } catch (e) {
+      console.log('[SPLASH] ERRO', e);
+      setTenantConfig(null);
+    } finally {
+      console.log('[SPLASH] 4 - finally');
+      setTenantConfigLoaded(true);
+      setAppReady(true);
 
-        await SplashScreen.hideAsync();
+      console.log('[SPLASH] 5 - antes do hideAsync');
+      await SplashScreen.hideAsync();
+      console.log('[SPLASH] 6 - depois do hideAsync');
 
-
-        blur.value = withTiming(1, { duration: 400 });
-        logoY.value = withTiming(-10, { duration: 600 });
-        opacity.value = withDelay(
-          700,
-          withTiming(0, { duration: 500 }, (finished) => {
-            if (finished) runOnJS(finishSplash)();
-          }),
-        );
-      }
+      blur.value = withTiming(1, { duration: 400 });
+      logoY.value = withTiming(-10, { duration: 600 });
+      opacity.value = withDelay(
+        700,
+        withTiming(0, { duration: 500 }, (finished) => {
+          if (finished) runOnJS(finishSplash)();
+        }),
+      );
+      console.log('[SPLASH] 7 - animações disparadas');
     }
+  }
 
-    init();
-  }, []);
+  console.log('[SPLASH] 0 - useEffect disparado');
+  init();
+}, []);
 
   useEffect(() => {
     const sub = AppState.addEventListener('change', (next) => {
@@ -182,7 +190,9 @@ export default function RootLayout() {
               resizeMode="contain"
             />
           </Animated.View>
-          <Text>ASSESSOR SAÚDE - MOBILE</Text>
+          <Text style={{ color: '#fff', marginTop: 8, fontWeight: '600', letterSpacing: 1 }}>
+            ASSESSOR SAÚDE - MOBILE
+          </Text>
         </Animated.View>
         
       </View>

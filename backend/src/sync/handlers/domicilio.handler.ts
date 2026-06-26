@@ -1,8 +1,10 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { DataSource } from 'typeorm';
 
 @Injectable()
 export class DomicilioHandler {
+  private readonly logger = new Logger(DomicilioHandler.name);
+
   public dataSource!: DataSource;
 
   async upsert(guid: string, dados: any, dataSource: DataSource): Promise<number> {
@@ -37,11 +39,18 @@ export class DomicilioHandler {
     };
 
     const checkFk = async (table: string, pk: string, val: any) => {
-      if (val === null) return null;
-      const res = await dataSource.query(`SELECT ${pk} FROM ${table} WHERE ${pk} = $1 LIMIT 1`, [val]);
-      if (res.length > 0) return val;
-      const fallback = await dataSource.query(`SELECT ${pk} FROM ${table} LIMIT 1`);
-      return fallback.length > 0 ? fallback[0][pk] : null;
+      if (val === null || val === undefined) return null;
+      try {
+        const res = await dataSource.query(`SELECT ${pk} FROM ${table} WHERE ${pk} = $1 LIMIT 1`, [val]);
+        if (res.length > 0) {
+          return val;
+        }
+        this.logger.warn(`[checkFk] Chave estrangeira não encontrada para ${table}.${pk} = ${val}. Retornando nulo.`);
+        return null;
+      } catch (e: any) {
+        this.logger.error(`[checkFk] Erro ao verificar FK para ${table}.${pk} = ${val}: ${e.message}`);
+        return null;
+      }
     };
 
     const payload = {

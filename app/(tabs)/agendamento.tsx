@@ -86,31 +86,6 @@ function avatarColor(id: number, theme: AppTheme) {
   return colors[Math.abs(id || 0) % colors.length];
 }
 
-function getAuthSnapshot() {
-  const state: any = useAuthStore.getState?.() ?? {};
-
-  const token =
-    state.token ??
-    state.accessToken ??
-    state.jwt ??
-    state.authToken ??
-    state.usuario?.token ??
-    '';
-
-  const municipioSlug =
-    state.municipioSlug ??
-    state.slug ??
-    state.municipio?.slug ??
-    state.vinculoSelecionado?.municipioSlug ??
-    state.vinculoSelecionado?.slug ??
-    '';
-
-  return {
-    token: String(token || ''),
-    municipioSlug: String(municipioSlug || ''),
-  };
-}
-
 function formatarDataCabecalho(data: Date) {
   return format(data, "EEEE, d 'de' MMMM", { locale: ptBR });
 }
@@ -126,15 +101,6 @@ function formatarDiaCurto(data: Date) {
 function formatarPeriodoSemana(inicio: Date) {
   const fim = addDays(inicio, 6);
   return `${format(inicio, 'd MMM', { locale: ptBR })} - ${format(fim, 'd MMM yyyy', { locale: ptBR })}`;
-}
-
-function montarHeaders() {
-  const { token, municipioSlug } = getAuthSnapshot();
-
-  return {
-    Authorization: token ? `Bearer ${token}` : '',
-    'x-municipio-slug': municipioSlug,
-  };
 }
 
 function isDataValida(data?: string) {
@@ -268,6 +234,7 @@ export default function AgendamentoScreen() {
   const colorScheme = useColorScheme();
   const theme = Colors[colorScheme === 'dark' ? 'dark' : 'light'];
   const styles = getStyles(theme);
+  const { token, municipioSlug } = useAuthStore();
 
   const [dataSelecionada, setDataSelecionada] = useState(new Date());
   const [semanaInicio, setSemanaInicio] = useState(startOfWeek(new Date(), { weekStartsOn: 1 }));
@@ -310,7 +277,10 @@ export default function AgendamentoScreen() {
     try {
       const response = await axios.get<{ status: string; dados: Profissional[] }>(
         `${API_BASE_URL}/api/sync/agendamento/profissionais`,
-        { headers: montarHeaders() },
+        { headers: {
+          Authorization: token ? `Bearer ${token}` : '',
+          'x-municipio-slug': municipioSlug,
+        } },
       );
 
       if (response.data?.status === 'S' && Array.isArray(response.data?.dados)) {
@@ -323,7 +293,7 @@ export default function AgendamentoScreen() {
     } finally {
       setCarregandoProfissionais(false);
     }
-  }, []);
+  }, [token, municipioSlug]);
 
   const carregarVagas = useCallback(
     async (data: Date, profissionalId: number | null, isPullToRefresh = false) => {
@@ -344,7 +314,10 @@ export default function AgendamentoScreen() {
         const response = await axios.get<{ status: string; dados: VagaGrupo[]; mensagem?: string }>(
           `${API_BASE_URL}/api/sync/agendamento/vagas`,
           {
-            headers: montarHeaders(),
+            headers: {
+              Authorization: token ? `Bearer ${token}` : '',
+              'x-municipio-slug': municipioSlug,
+            },
             params,
           },
         );

@@ -17,7 +17,6 @@ import Animated, {
   useAnimatedStyle,
   withTiming,
   withDelay,
-  withSequence,
   Easing,
   runOnJS,
 } from 'react-native-reanimated';
@@ -89,13 +88,11 @@ export default function RootLayout() {
   }
 
   function runEntranceAnimation() {
-    // fundo desfoca suavemente
     blur.value = withTiming(1, {
       duration: 500,
       easing: Easing.out(Easing.ease),
     });
 
-    // logo: fade + scale + leve subida, com easing "overshoot" sutil
     logoOpacity.value = withTiming(1, {
       duration: 550,
       easing: Easing.out(Easing.cubic),
@@ -109,7 +106,6 @@ export default function RootLayout() {
       easing: Easing.out(Easing.cubic),
     });
 
-    // título entra depois do logo, com seu próprio fade + subida
     titleOpacity.value = withDelay(
       350,
       withTiming(1, { duration: 500, easing: Easing.out(Easing.cubic) }),
@@ -119,7 +115,6 @@ export default function RootLayout() {
       withTiming(0, { duration: 500, easing: Easing.out(Easing.cubic) }),
     );
 
-    // depois de tudo assentar, espera um instante e desaparece
     containerOpacity.value = withDelay(
       1500,
       withTiming(
@@ -132,7 +127,7 @@ export default function RootLayout() {
     );
   }
 
-  // 🔥 carregamento inicial
+  // 🔥 carregamento inicial (boot do app)
   useEffect(() => {
     async function init() {
       try {
@@ -152,6 +147,19 @@ export default function RootLayout() {
 
     init();
   }, []);
+
+  // ✅ FIX: recarrega tenantConfig sempre que o profissional logar/deslogar
+  // Sem isso, o tenantConfig fica travado no valor obtido no boot (geralmente null,
+  // pois o login com a seleção de município ainda não tinha acontecido), e toda
+  // navegação para rotas com permissão mapeada é rejeitada por podeUsarModulo,
+  // forçando o redirect de volta pra /(tabs)/home.
+  useEffect(() => {
+    if (!profissional) return;
+
+    obterTenantConfig()
+      .then(setTenantConfig)
+      .catch(() => setTenantConfig(null));
+  }, [profissional]);
 
   // 🔐 bloqueio quando vai pra background
   useEffect(() => {
@@ -227,7 +235,6 @@ export default function RootLayout() {
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
       <SafeAreaProvider>
-        {/* Navigator SEMPRE montado */}
         <Stack screenOptions={{ headerShown: false }}>
           <Stack.Screen name="(auth)/login" />
           <Stack.Screen name="(auth)/desbloqueio" />
@@ -241,7 +248,6 @@ export default function RootLayout() {
           />
         </Stack>
 
-        {/* Splash overlay */}
         {showSplash && (
           <Animated.View
             style={[

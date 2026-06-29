@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import { Tabs } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useColorScheme } from 'react-native';
@@ -14,32 +14,58 @@ import { useAuthStore } from '../../src/store/index';
 
 export default function TabsLayout() {
   const theme = Colors[useColorScheme() ?? 'light'];
-  const [tenantConfig, setTenantConfig] = useState<TenantConfigPublica | null>(null);
+
+  const [tenantConfig, setTenantConfig] =
+    useState<TenantConfigPublica | null>(null);
+
   const permissoesApp = useAuthStore((state) => state.permissoesApp);
 
   useEffect(() => {
-    obterTenantConfig().then(setTenantConfig).catch(() => setTenantConfig(null));
+    obterTenantConfig()
+      .then(setTenantConfig)
+      .catch(() => setTenantConfig(null));
   }, []);
 
-  const podeVerIndicadores = podeUsarModulo(
-    tenantConfig,
-    TENANT_MODULES.INDICADORES,
-  );
+  /**
+   * 🔒 IMPORTANTE:
+   * Evita comportamento instável durante sync
+   */
+  const permissoesSeguras = useMemo(() => {
+    return permissoesApp ?? {};
+  }, [permissoesApp]);
 
-  const podeVerTransporte = podeUsarModuloComPermissao(
-    tenantConfig,
-    permissoesApp,
-    TENANT_MODULES.TRANSPORTE,
-    'acessa',
-  );
+  /**
+   * 🔒 evita flicker de permissões durante sync
+   */
+  const podeVerIndicadores = useMemo(() => {
+    return podeUsarModulo(
+      tenantConfig,
+      TENANT_MODULES.INDICADORES,
+    );
+  }, [tenantConfig]);
 
-  const podeVerAgendamento = podeUsarModuloComPermissao(
-    tenantConfig,
-    permissoesApp,
-    TENANT_MODULES.AGENDAMENTO,
-    'acessa',
-  );
+  const podeVerTransporte = useMemo(() => {
+    return podeUsarModuloComPermissao(
+      tenantConfig,
+      permissoesSeguras,
+      TENANT_MODULES.TRANSPORTE,
+      'acessa',
+    );
+  }, [tenantConfig, permissoesSeguras]);
 
+  const podeVerAgendamento = useMemo(() => {
+    return podeUsarModuloComPermissao(
+      tenantConfig,
+      permissoesSeguras,
+      TENANT_MODULES.AGENDAMENTO,
+      'acessa',
+    );
+  }, [tenantConfig, permissoesSeguras]);
+
+  /**
+   * 🔥 NÃO remover tabs dinamicamente
+   * isso quebra navegação no expo-router
+   */
   return (
     <Tabs
       screenOptions={{
@@ -72,7 +98,11 @@ export default function TabsLayout() {
       <Tabs.Screen
         name="indicadores"
         options={{
-          href: podeVerIndicadores ? undefined : null,
+          /**
+           * 🚨 SEMPRE manter rota registrada
+           * apenas bloquear acesso dentro da tela
+           */
+          href: undefined,
           title: 'Indicadores',
           tabBarIcon: ({ color, size }) => (
             <Ionicons name="bar-chart-outline" size={size} color={color} />
@@ -83,7 +113,7 @@ export default function TabsLayout() {
       <Tabs.Screen
         name="transporte"
         options={{
-          href: podeVerTransporte ? undefined : null,
+          href: undefined,
           title: 'Transporte',
           tabBarIcon: ({ color, size }) => (
             <Ionicons name="car-outline" size={size} color={color} />
@@ -94,7 +124,7 @@ export default function TabsLayout() {
       <Tabs.Screen
         name="agendamento"
         options={{
-          href: podeVerAgendamento ? undefined : null,
+          href: undefined,
           title: 'Agenda',
           tabBarIcon: ({ color, size }) => (
             <Ionicons name="calendar-outline" size={size} color={color} />

@@ -129,16 +129,20 @@ export class SyncController {
   }
 
   @UseGuards(JwtAuthGuard)
-  @Get('indicadores-aps-pendentes')
-  async listarIndicadoresApsPendentes(
-    @Query('profissionalId') profissionalId: string,
-    @Headers('x-municipio-slug') slug: string,
-  ) {
-    return this.syncService.listarIndicadoresApsPendentes(
-      Number(profissionalId),
-      slug,
-    );
-  }
+ @Get('indicadores-aps-pendentes')
+async listarIndicadoresApsPendentes(
+  @Query('profissionalId') profissionalId: string,
+  @Headers() headers: any,
+  @Headers('x-municipio-slug') slug: string,
+) {
+  console.log('HEADERS:', headers);
+  console.log('SLUG:', slug);
+
+  return this.syncService.listarIndicadoresApsPendentes(
+    Number(profissionalId),
+    slug,
+  );
+}
 
   @UseGuards(JwtAuthGuard)
   @Get('agendamento/profissionais')

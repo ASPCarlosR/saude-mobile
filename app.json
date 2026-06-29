@@ -92,8 +92,8 @@
             "navigationBarColor": "#000000"
           }
         }
-      ],
-      "@react-native-community/datetimepicker"
+      ]
+      
     ],
     "scheme": "saude-mobile",
     "extra": {

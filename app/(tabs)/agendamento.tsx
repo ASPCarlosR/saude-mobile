@@ -11,7 +11,6 @@ import {
   useColorScheme,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Ionicons } from '@expo/vector-icons';
 import axios from 'axios';
 import { addDays, format, isSameDay, parseISO, startOfWeek } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -19,6 +18,7 @@ import { ptBR } from 'date-fns/locale';
 import { Colors } from '../fichas/colors';
 import { API_BASE_URL } from '@/config';
 import { useAuthStore } from '../../src/store/index';
+import { Ionicons } from '@expo/vector-icons';
 
 type AppTheme = typeof Colors.light;
 
@@ -345,8 +345,7 @@ export default function AgendamentoScreen() {
         setCarregandoLista(false);
         setRefreshing(false);
       }
-    },
-    [],
+    }, [token, municipioSlug],
   );
 
   useEffect(() => {

@@ -20,7 +20,7 @@ export class TenantService implements OnModuleDestroy {
   async listarAtivos(): Promise<{ id: number; nome: string; slug: string }[]> {
     const municipios = await this.tenantRepo.find({
       where: { ativo: true },
-      select: ['id', 'nome', 'slug'],
+      select: { id: true, nome: true, slug: true },
       order: { nome: 'ASC' },
     });
 

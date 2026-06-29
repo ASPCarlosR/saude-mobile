@@ -3,13 +3,22 @@ import { Stack, useRouter, useSegments } from 'expo-router';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import * as NavigationBar from 'expo-navigation-bar';
-import { Platform, AppState, View, Image, StyleSheet, Text } from 'react-native';
+import {
+  Platform,
+  AppState,
+  View,
+  Image,
+  StyleSheet,
+  Text,
+} from 'react-native';
 import * as SplashScreen from 'expo-splash-screen';
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
   withTiming,
   withDelay,
+  withSequence,
+  Easing,
   runOnJS,
 } from 'react-native-reanimated';
 import { BlurView } from 'expo-blur';
@@ -34,7 +43,6 @@ export default function RootLayout() {
   const [tenantConfig, setTenantConfig] =
     useState<TenantConfigPublica | null>(null);
   const [tenantConfigLoaded, setTenantConfigLoaded] = useState(false);
-
   const [showSplash, setShowSplash] = useState(true);
 
   const appState = useRef(AppState.currentState);
@@ -44,63 +52,108 @@ export default function RootLayout() {
     [segments],
   );
 
-  // 🎬 ANIMAÇÕES SPLASH
-  const opacity = useSharedValue(1);
-  const logoY = useSharedValue(20);
+  // 🎬 animações — sequência em camadas
+  const containerOpacity = useSharedValue(1);
   const blur = useSharedValue(0);
 
-  const splashStyle = useAnimatedStyle(() => ({
-    opacity: opacity.value,
-  }));
+  const logoOpacity = useSharedValue(0);
+  const logoScale = useSharedValue(0.85);
+  const logoY = useSharedValue(12);
 
-  const logoStyle = useAnimatedStyle(() => ({
-    transform: [{ translateY: logoY.value }],
+  const titleOpacity = useSharedValue(0);
+  const titleY = useSharedValue(10);
+
+  const containerStyle = useAnimatedStyle(() => ({
+    opacity: containerOpacity.value,
   }));
 
   const blurStyle = useAnimatedStyle(() => ({
     opacity: blur.value,
   }));
 
+  const logoStyle = useAnimatedStyle(() => ({
+    opacity: logoOpacity.value,
+    transform: [
+      { translateY: logoY.value },
+      { scale: logoScale.value },
+    ],
+  }));
+
+  const titleStyle = useAnimatedStyle(() => ({
+    opacity: titleOpacity.value,
+    transform: [{ translateY: titleY.value }],
+  }));
+
   function finishSplash() {
     setShowSplash(false);
   }
 
-  useEffect(() => {
-  async function init() {
-    console.log('[SPLASH] 1 - init iniciado');
-    try {
-      console.log('[SPLASH] 2 - antes de obterTenantConfig');
-      const tenant = await obterTenantConfig();
-      console.log('[SPLASH] 3 - tenant obtido', tenant);
-      setTenantConfig(tenant);
-    } catch (e) {
-      console.log('[SPLASH] ERRO', e);
-      setTenantConfig(null);
-    } finally {
-      console.log('[SPLASH] 4 - finally');
-      setTenantConfigLoaded(true);
-      setAppReady(true);
+  function runEntranceAnimation() {
+    // fundo desfoca suavemente
+    blur.value = withTiming(1, {
+      duration: 500,
+      easing: Easing.out(Easing.ease),
+    });
 
-      console.log('[SPLASH] 5 - antes do hideAsync');
-      await SplashScreen.hideAsync();
-      console.log('[SPLASH] 6 - depois do hideAsync');
+    // logo: fade + scale + leve subida, com easing "overshoot" sutil
+    logoOpacity.value = withTiming(1, {
+      duration: 550,
+      easing: Easing.out(Easing.cubic),
+    });
+    logoScale.value = withTiming(1, {
+      duration: 650,
+      easing: Easing.out(Easing.back(1.2)),
+    });
+    logoY.value = withTiming(0, {
+      duration: 650,
+      easing: Easing.out(Easing.cubic),
+    });
 
-      blur.value = withTiming(1, { duration: 400 });
-      logoY.value = withTiming(-10, { duration: 600 });
-      opacity.value = withDelay(
-        700,
-        withTiming(0, { duration: 500 }, (finished) => {
+    // título entra depois do logo, com seu próprio fade + subida
+    titleOpacity.value = withDelay(
+      350,
+      withTiming(1, { duration: 500, easing: Easing.out(Easing.cubic) }),
+    );
+    titleY.value = withDelay(
+      350,
+      withTiming(0, { duration: 500, easing: Easing.out(Easing.cubic) }),
+    );
+
+    // depois de tudo assentar, espera um instante e desaparece
+    containerOpacity.value = withDelay(
+      1500,
+      withTiming(
+        0,
+        { duration: 450, easing: Easing.in(Easing.cubic) },
+        (finished) => {
           if (finished) runOnJS(finishSplash)();
-        }),
-      );
-      console.log('[SPLASH] 7 - animações disparadas');
-    }
+        },
+      ),
+    );
   }
 
-  console.log('[SPLASH] 0 - useEffect disparado');
-  init();
-}, []);
+  // 🔥 carregamento inicial
+  useEffect(() => {
+    async function init() {
+      try {
+        const tenant = await obterTenantConfig();
+        setTenantConfig(tenant);
+      } catch (e) {
+        setTenantConfig(null);
+      } finally {
+        setTenantConfigLoaded(true);
+        setAppReady(true);
 
+        await SplashScreen.hideAsync();
+
+        runEntranceAnimation();
+      }
+    }
+
+    init();
+  }, []);
+
+  // 🔐 bloqueio quando vai pra background
   useEffect(() => {
     const sub = AppState.addEventListener('change', (next) => {
       const saiu =
@@ -115,21 +168,26 @@ export default function RootLayout() {
     });
 
     return () => sub.remove();
-  }, [profissional]);
+  }, [profissional, setBloqueado]);
 
+  // 🧭 controle de navegação
   useEffect(() => {
-    if (!appReady) return;
+    if (!appReady || showSplash) return;
 
     const inAuth = segments[0] === '(auth)';
     const isIndex = segments.length === 0;
 
     if (!profissional) {
-      if (!inAuth) router.replace('/(auth)/login');
+      if (!inAuth) {
+        router.replace('/(auth)/login');
+      }
       return;
     }
 
-    if (profissional && bloqueado) {
-      if (!inAuth) router.replace('/(auth)/desbloqueio');
+    if (bloqueado) {
+      if (!inAuth) {
+        router.replace('/(auth)/desbloqueio');
+      }
       return;
     }
 
@@ -150,11 +208,14 @@ export default function RootLayout() {
     bloqueado,
     segments,
     appReady,
+    showSplash,
     permissaoDaRota,
     tenantConfig,
     tenantConfigLoaded,
+    router,
   ]);
 
+  // 📱 navbar android
   useEffect(() => {
     if (Platform.OS !== 'android') return;
 
@@ -163,45 +224,10 @@ export default function RootLayout() {
     NavigationBar.setVisibilityAsync('hidden');
   }, []);
 
-  // 🚀 SPLASH PREMIUM (OVERLAY)
-  if (showSplash) {
-    return (
-      <View style={{ flex: 1, backgroundColor: '#0B0B0F' }}>
-        {/* Blur de fundo */}
-        <Animated.View style={[{ ...StyleSheet.absoluteFillObject }, blurStyle]}>
-          <BlurView intensity={30} style={{ flex: 1 }} />
-        </Animated.View>
-
-        {/* Logo central */}
-        <Animated.View
-          style={[
-            {
-              flex: 1,
-              justifyContent: 'center',
-              alignItems: 'center',
-            },
-            splashStyle,
-          ]}
-        >
-          <Animated.View style={logoStyle}>
-            <Image
-              source={require('../assets/logo.png')}
-              style={{ width: 140, height: 140 }}
-              resizeMode="contain"
-            />
-          </Animated.View>
-          <Text style={{ color: '#fff', marginTop: 8, fontWeight: '600', letterSpacing: 1 }}>
-            ASSESSOR SAÚDE - MOBILE
-          </Text>
-        </Animated.View>
-        
-      </View>
-    );
-  }
-
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
       <SafeAreaProvider>
+        {/* Navigator SEMPRE montado */}
         <Stack screenOptions={{ headerShown: false }}>
           <Stack.Screen name="(auth)/login" />
           <Stack.Screen name="(auth)/desbloqueio" />
@@ -214,6 +240,69 @@ export default function RootLayout() {
             }}
           />
         </Stack>
+
+        {/* Splash overlay */}
+        {showSplash && (
+          <Animated.View
+            style={[
+              {
+                ...StyleSheet.absoluteFillObject,
+                backgroundColor: '#0B0B0F',
+                zIndex: 999,
+              },
+              containerStyle,
+            ]}
+          >
+            <Animated.View
+              style={[{ ...StyleSheet.absoluteFillObject }, blurStyle]}
+            >
+              <BlurView intensity={30} style={{ flex: 1 }} />
+            </Animated.View>
+
+            <View
+              style={{
+                flex: 1,
+                justifyContent: 'center',
+                alignItems: 'center',
+              }}
+            >
+              <Animated.View style={logoStyle}>
+                <Image
+                  source={require('../assets/logo.png')}
+                  style={{ width: 140, height: 140 }}
+                  resizeMode="contain"
+                />
+              </Animated.View>
+
+              <Animated.View style={titleStyle}>
+                <Text
+                  style={{
+                    color: '#FFFFFF',
+                    marginTop: 16,
+                    fontSize: 15,
+                    fontWeight: '600',
+                    letterSpacing: 2.5,
+                    textAlign: 'center',
+                  }}
+                >
+                  ASSESSOR SAÚDE
+                </Text>
+                <Text
+                  style={{
+                    color: 'rgba(255,255,255,0.55)',
+                    marginTop: 2,
+                    fontSize: 11,
+                    fontWeight: '500',
+                    letterSpacing: 1.8,
+                    textAlign: 'center',
+                  }}
+                >
+                  MOBILE
+                </Text>
+              </Animated.View>
+            </View>
+          </Animated.View>
+        )}
       </SafeAreaProvider>
     </GestureHandlerRootView>
   );

@@ -432,6 +432,10 @@ export default function IndicadoresScreen() {
   useEffect(() => {
     carregar();
   }, []);
+  console.log('AUTH:', auth);
+console.log('PROFISSIONAL:', profissional);
+console.log('AUTH MUNICIPIO:', auth?.municipio);
+console.log('PROFISSIONAL MUNICIPIO:', profissional?.municipioSlug);
 
   async function carregar(isRefresh = false) {
     if (!profissional?.id) {
@@ -453,10 +457,8 @@ export default function IndicadoresScreen() {
         headers: {
           'Content-Type': 'application/json',
           ...(token ? { Authorization: `Bearer ${token}` } : {}),
-          ...(profissional?.municipioSlug
-            ? { 'x-municipio-slug': profissional.municipioSlug }
-            : {}),
-        },
+          'x-municipio-slug': profissional?.municipioSlug || auth?.municipioSlug || '',
+        }
       });
 
       const result: ApiResponse = await response.json();

@@ -14,7 +14,7 @@
     "assetBundlePatterns": [
       "**/*"
     ],
-    "newArchEnabled": true,
+    "newArchEnabled": false,
     "runtimeVersion": {
       "policy": "appVersion"
     },

@@ -11,6 +11,6 @@ async function bootstrap() {
   app.use(urlencoded({ extended: true, limit: '50mb' }));
 
   await app.listen(3000, '0.0.0.0');
-  console.log('Backend de Sincronização do e-SUS rodando na porta 3000');
+  console.log('Backend de Sincronização rodando na porta 3000');
 }
 bootstrap();
